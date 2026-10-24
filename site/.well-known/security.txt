@@ -1,0 +1,7 @@
+# Found a security issue on klaus.onl? Thanks for looking.
+# Before you report: it was probably DNS.
+
+Contact: https://github.com/Berndinox
+Expires: 2027-10-23T00:00:00.000Z
+Preferred-Languages: en, de
+Canonical: https://klaus.onl/.well-known/security.txt

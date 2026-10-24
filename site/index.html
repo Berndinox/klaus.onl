@@ -1,0 +1,2681 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>klaus.onl</title>
+<meta name="description" content="Servus. Bernd, cloud native nerd from Austria. Status: Running.">
+<link rel="canonical" href="https://klaus.onl/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://klaus.onl/">
+<meta property="og:site_name" content="klaus.onl">
+<meta property="og:title" content="klaus.onl">
+<meta property="og:description" content="Servus. Bernd, cloud native nerd from Austria. The shell is (mostly) real.">
+<meta property="og:image" content="https://klaus.onl/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="klaus.onl, status online, kubectl describe human bernd">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0b0e1a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b0e1a'/%3E%3Ctext x='6' y='23' font-family='monospace' font-size='18' fill='%238fa2ff'%3E%3E_%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Martian+Mono:wdth,wght@112.5,300;112.5,800&display=swap">
+<style>
+/* Layout: one column; wordmark sized to the hostname, a kubectl shell beneath, a DNS line as footer. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0e1a;
+  --surface: #11162a;
+  --line: #222a48;
+  --fg: #e4e7f3;
+  --muted: #7a82a3;
+  --accent: #8fa2ff;
+  --ok: #5ee6a1;
+  --warn: #ffb86b;
+  --font-display: "Martian Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f2f3f8;
+    --surface: #ffffff;
+    --line: #d7dbea;
+    --fg: #12162a;
+    --muted: #5a6182;
+    --accent: #3346e0;
+    --ok: #0c8f55;
+    --warn: #b35c00;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.55 var(--font-mono);
+  min-height: 100vh;
+  padding-block: max(32px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ---- header ---- */
+.hero { container-type: inline-size; display: flex; flex-direction: column; gap: 10px; }
+.status {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  font-size: 13px; color: var(--muted);
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.status b { color: var(--ok); font-weight: 500; }
+.alumni { color: #ffc93c; font-weight: 500; }
+.alumni.justearned { animation: bump 1.6s ease-out; }
+.status .bumped { animation: bump 1.6s ease-out; }
+@keyframes bump { 0%, 30% { color: var(--warn); } 100% { color: inherit; } }
+.dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ok); margin-right: 6px; vertical-align: 1px;
+  box-shadow: 0 0 0 0 var(--ok);
+  animation: pulse 2.4s ease-out infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 8px transparent; }
+}
+.status.degraded b { color: var(--warn); }
+.status.degraded .dot { background: var(--warn); animation: none; }
+.wordmark {
+  --chars: 9;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 112.5%;
+  font-size: min(7.5rem, calc(100cqw / (var(--chars) * 0.86)));
+  line-height: 1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+.wordmark .tld { color: var(--accent); font-weight: 300; }
+.wordmark.down { color: var(--warn); }
+.wordmark.booting { opacity: 0.2; transition: opacity 0.4s; }
+.wordmark.falling span { display: inline-block; animation: fall 1.4s cubic-bezier(.5,0,1,1) forwards; }
+@keyframes fall {
+  to { transform: translateY(70vh) rotate(28deg); opacity: 0; }
+}
+body[data-panic] { background: #000 !important; }
+body[data-panic] .term { background: #000; border-color: #200; }
+.wordmark.glitch { animation: glitch 0.35s steps(2) infinite; }
+@keyframes glitch {
+  0%   { transform: translate(0); text-shadow: 3px 0 var(--warn), -3px 0 var(--accent); }
+  25%  { transform: translate(-2px, 1px) skewX(-4deg); }
+  50%  { transform: translate(2px, -1px); text-shadow: -3px 0 var(--warn), 3px 0 var(--accent); }
+  75%  { transform: translate(-1px, 0) skewX(3deg); }
+  100% { transform: translate(0); text-shadow: none; }
+}
+.tagline { margin: 0; color: var(--muted); max-width: 60ch; text-wrap: pretty; }
+.tagline strong { color: var(--fg); font-weight: 500; }
+
+/* ---- terminal ---- */
+.term {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.term-bar {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px; color: var(--muted);
+}
+.term-bar span:last-child { white-space: nowrap; }
+.term-body {
+  padding: 16px 16px 8px;
+  height: min(30rem, 62vh);
+  overflow-y: auto;
+  cursor: text;
+}
+.out { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; }
+.out .cmd { color: var(--fg); }
+.out .p, .prompt { color: var(--accent); white-space: nowrap; }
+.rootp { color: #ff5f56 !important; font-weight: 500; }
+.root-banner { text-shadow: 0 0 7px color-mix(in srgb, var(--ok) 60%, transparent); }
+#body.rootflash { animation: rootflash 0.8s ease-out; }
+@keyframes rootflash {
+  0% { background: transparent; }
+  12% { background: color-mix(in srgb, var(--ok) 22%, transparent); }
+  100% { background: transparent; }
+}
+.flickerin { animation: flickerin 0.5s steps(3, end) 1; }
+@keyframes flickerin { 0% { opacity: 0; } 20% { opacity: 1; } 40% { opacity: 0.3; } 60% { opacity: 1; } 80% { opacity: 0.5; } 100% { opacity: 1; } }
+.status.rooted b { color: #ff5f56; }
+.status.rooted .dot { background: #ff5f56; animation: none; }
+.out .m { color: var(--muted); }
+.out .ok { color: var(--ok); }
+.out .w { color: var(--warn); }
+.out .a { color: var(--accent); }
+.out b { font-weight: 500; color: var(--fg); }
+.out a { color: var(--accent); text-underline-offset: 3px; }
+.out .wide { display: block; white-space: pre; overflow-x: auto; max-width: 100%; }
+.out .fade { display: inline-block; animation: fadein 1.6s ease forwards; opacity: 0; }
+.out .fade.slow { animation-duration: 2.4s; }
+@keyframes fadein { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .out .fade { animation: none; opacity: 1; } }
+.line { display: flex; gap: 8px; align-items: baseline; padding-top: 14px; padding-bottom: 8px; }
+.line input {
+  flex: 1; min-width: 0;
+  background: transparent; border: 0; outline: 0;
+  color: var(--fg); font: inherit; caret-color: var(--accent);
+  padding: 0;
+}
+.train { display: block; position: relative; height: 10lh; overflow: hidden; }
+.train > span { position: absolute; top: 0; left: 100%; white-space: pre; animation: sl 5s linear forwards; }
+@keyframes sl { to { left: -60ch; } }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 14px; }
+.chips button {
+  font: 12px var(--font-mono);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.chips button:hover { color: var(--accent); border-color: var(--accent); }
+.chips button:focus-visible, .line input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ---- footer ---- */
+footer {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
+  font-size: 13px; color: var(--muted);
+}
+footer code { font: inherit; color: var(--fg); }
+footer a { color: var(--accent); text-underline-offset: 3px; }
+
+@media (max-width: 520px) {
+  body { font-size: 13px; }
+  .term-bar span:first-child { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot { animation: none; }
+  .wordmark.glitch { animation: none; color: var(--warn); }
+  .train > span { animation: none; position: static; }
+  #body.rootflash { animation: none; }
+  .flickerin { animation: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="status" id="status">
+      <span><span class="dot"></span><b id="status-text">online</b></span>
+      <span>load: <span id="load">0.42</span></span>
+      <span>restarts: <span id="restarts">0</span></span>
+      <span id="alumni" class="alumni" hidden>★ root alumni</span>
+    </div>
+    <h1 class="wordmark" id="wordmark"><span id="wm-name">klaus</span><span class="tld" id="wm-tld">.onl</span></h1>
+    <p class="tagline"><strong>Servus.</strong> I'm Bernd, cloud native nerd from Austria.<br>The shell below is (mostly) real. Try typing something.</p>
+  </header>
+
+  <section class="term" aria-label="Interactive terminal">
+    <div class="term-bar">
+      <span>context: homelab · namespace: life</span>
+      <span id="term-title"></span>
+    </div>
+    <div class="term-body" id="body">
+      <pre class="out" id="out" aria-live="polite"></pre>
+      <div class="line">
+        <span class="prompt" id="ps1" aria-hidden="true">~ $</span>
+        <input id="cmd" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command">
+      </div>
+    </div>
+    <div class="chips" id="chips">
+      <button type="button" data-cmd="help">help</button>
+      <button type="button" data-cmd="whoami">whoami</button>
+      <button type="button" data-cmd="man bernd">man bernd</button>
+      <button type="button" data-cmd="k get pods">k get pods</button>
+    </div>
+  </section>
+
+  <footer>
+    <span>served from <code>homelab-01</code>, reconciled by flux.</span>
+    <a href="https://github.com/Berndinox" rel="me">github.com/Berndinox</a>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const host = "klaus.onl";
+  const USER = "berndinox";
+  const dot = host.lastIndexOf(".");
+  const $ = id => document.getElementById(id);
+  const wordmark = $("wordmark");
+  const status = $("status"), statusText = $("status-text");
+  // Rebuilds the inner spans every call, so it still works after the rm -rf finale
+  // explodes the wordmark into individual letters.
+  const setWordmark = (name, tld) => {
+    wordmark.innerHTML = `<span id="wm-name"></span><span class="tld" id="wm-tld"></span>`;
+    wordmark.firstChild.textContent = name;
+    wordmark.lastChild.textContent = tld;
+    wordmark.style.setProperty("--chars", (name + tld).length);
+  };
+  setWordmark(host.slice(0, dot), host.slice(dot));
+
+  const out = $("out"), body = $("body"), input = $("cmd"), ps1El = $("ps1");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const started = Date.now();
+  const history = [];
+  let hIdx = 0, cwd = "~", busy = false, restarts = 0, isRoot = false, inPod = false, podCwd = "/";
+  // Load average: drifts toward a baseline on its own and jumps when you run commands.
+  let load = 0.42; const LOAD_BASE = 0.4;
+
+  const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let capture = null;
+  const print = html => {
+    if (capture) { capture.push(html); return; }
+    // Column-aligned output (tables, yaml, neofetch) scrolls sideways instead of wrapping.
+    const aligned = /\S {3,}\S|^ {2,}\S/m.test(html.replace(/<[^>]+>/g, ""));
+    out.insertAdjacentHTML("beforeend", aligned ? `<span class="wide">${html}</span>` : html + "\n");
+    body.scrollTop = body.scrollHeight;
+  };
+  const whoNow = () => isRoot ? "root" : USER;
+  // Shown in the title bar as a quiet contact hint; assembled at runtime so the
+  // literal address never appears in the source and naive harvesters miss it.
+  const titleUser = () => isRoot ? "root" : atob("YmVybmQ=");
+  const ps1 = () => inPod ? `${podCwd} #` : `${cwd} ${isRoot ? "#" : "$"}`;
+  const echo = cmd => print(`<span class="p${isRoot && !inPod ? " rootp" : ""}">${esc(ps1())}</span> <span class="cmd">${esc(cmd)}</span>`);
+  const setCwd = dir => {
+    cwd = dir;
+    ps1El.textContent = ps1();
+    ps1El.classList.toggle("rootp", isRoot && !inPod);
+    $("term-title").textContent = inPod
+      ? `root@node-debugger-homelab-01: /`
+      : `${titleUser()}@${host}: ${cwd}`;
+  };
+  setCwd("~");
+  const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${esc(text)}</a>`;
+
+  // Runs timed steps while the prompt is locked, then hands the shell back.
+  function sequence(steps, delay = 380) {
+    busy = true;
+    input.disabled = true;
+    const d = reduced ? 0 : delay;
+    steps.forEach((step, n) => setTimeout(step, n * d));
+    setTimeout(() => { busy = false; input.disabled = false; input.focus({ preventScroll: true }); }, steps.length * d + 10);
+  }
+  const degrade = (text) => { status.classList.add("degraded"); statusText.textContent = text; wordmark.classList.add("glitch"); };
+  const bumpRestarts = () => {
+    const r = $("restarts");
+    r.textContent = ++restarts;
+    r.classList.remove("bumped"); void r.offsetWidth; r.classList.add("bumped");
+  };
+  const renderLoad = (flash) => {
+    const el = $("load");
+    if (!el) return;
+    el.textContent = load.toFixed(2);
+    if (flash) { el.classList.remove("bumped"); void el.offsetWidth; el.classList.add("bumped"); }
+  };
+  // A quiet heartbeat so the value is always gently moving, like a real load average.
+  setInterval(() => { load = Math.max(0.05, LOAD_BASE + (load - LOAD_BASE) * 0.65 + (Math.random() - 0.5) * 0.08); renderLoad(false); }, 2200);
+  const bumpLoad = () => { load = Math.min(99, load + 0.25 + Math.random() * 0.5); renderLoad(true); };
+  const recover = () => {
+    bumpRestarts();
+    status.classList.remove("degraded"); statusText.textContent = "online";
+    wordmark.classList.remove("glitch", "down");
+    setWordmark(host.slice(0, dot), host.slice(dot));
+  };
+
+  /* ---------- content ---------- */
+
+  const DESCRIBE = () => `Name:         bernd
+Kind:         Human
+Namespace:    austria
+Labels:       role=cloud-native-nerd
+              habitat=homelab
+Status:       <span class="ok">Running</span>
+Containers:
+  brain:
+    Requests:  coffee=2, sleep=8h
+Endpoints:    ${link("https://github.com/Berndinox", "github.com/Berndinox")}
+Events:
+  <span class="m">Type     Reason      From     Message</span>
+  Normal   Reconciled  flux     homelab synced from git
+  <span class="w">Warning  BackOff     sleep    not enough of it, retrying tonight</span>`;
+
+  const PODS = `<span class="m">NAME                 READY   STATUS             RESTARTS     AGE</span>
+coffee-7f9c4d        1/1     <span class="ok">Running</span>            0            since 06:30
+homelab-5b8d2e       1/1     <span class="ok">Running</span>            42 (on purpose) forever
+curiosity-0          1/1     <span class="ok">Running</span>            0            always
+side-project-x9k2    0/1     <span class="w">Pending</span>            0            3 months
+sleep-6d4f8a         0/1     <span class="w">CrashLoopBackOff</span>   17           too long`;
+
+  const PODS_AT = `<span class="m">NAME             READY   STATUS    RESTARTS   AGE</span>
+my-place-0       1/1     <span class="ok">Running</span>   0          since day one`;
+
+  const NAMESPACES = `<span class="m">NAME          STATUS   AGE</span>
+life          Active   since day one
+austria       Active   since birth
+flux-system   Active   since day one
+kube-system   Active   <span class="m">don't look</span>`;
+
+  const PODS_FLUX = `<span class="m">NAME                                    READY   STATUS             RESTARTS   AGE</span>
+source-controller-6c8f9d7b5-x2k4p       1/1     <span class="ok">Running</span>            0          1337d
+kustomize-controller-7d9c6b8f4-q8m2n    1/1     <span class="ok">Running</span>            0          1337d
+helm-controller-5b7d8c9f6-h3j7w         1/1     <span class="ok">Running</span>            0          1337d
+coffee-controller-418c0ffee-b3an5       1/1     <span class="ok">Running</span>            0          since 06:30
+sleep-controller-8h0m0s-zzz42           0/1     <span class="w">CrashLoopBackOff</span>   17         too long`;
+
+  const NODES = `<span class="m">NAME         STATUS   ROLES                  AGE     VERSION</span>
+homelab-01   <span class="ok">Ready</span>    control-plane,worker   1337d   v1.34.2
+
+<span class="m">single node. everything runs here. please don't drain it.</span>`;
+
+  const TOP_NODE = `<span class="m">NAME         CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%</span>
+homelab-01   4200m        42%    61Gi            <span class="w">97%</span>
+
+<span class="m">memory breakdown: 3% workloads, 94% browser tabs (see curiosity-0).</span>`;
+
+  const TOP_PODS = `<span class="m">NAME                 CPU(cores)   MEMORY(bytes)</span>
+coffee-7f9c4d        950m         64Mi
+homelab-5b8d2e       2100m        12Gi
+curiosity-0          1200m        <span class="w">44Gi</span>
+side-project-x9k2    0m           0Mi
+sleep-6d4f8a         0m           0Mi`;
+
+  const ZONE = `<span class="m">; &lt;&lt;&gt;&gt; DiG &lt;&lt;&gt;&gt; ${host}</span>
+<span class="m">;; ANSWER SECTION:</span>
+klaus.onl.        300  IN  A      127.0.0.1   <span class="m">; there's no place like home</span>
+klaus.onl.        300  IN  TXT    "v=human1; status=running; coffee=required"`;
+
+  const KUBECONFIG = `apiVersion: v1
+kind: Config
+clusters:
+- name: homelab
+  cluster:
+    server: <span class="w">ENC[AES256_GCM,data:q8Zr1vX0fN4kLm2=,iv:Hk3...,type:str]</span>
+users:
+- name: admin
+  user:
+    token: <span class="w">ENC[AES256_GCM,data:7f3kPq9wZx0B...,iv:Rt8...,type:str]</span>
+sops:
+  age:
+  - recipient: age1qz7m0...xk3
+  encrypted_regex: ^(server|token)$
+
+<span class="m">nice try. it's sops-encrypted.</span>`;
+
+  const WHOAMI = `bernd. cloud native nerd from austria.
+builds things with kubernetes, breaks them in the homelab first.
+<span class="m">servus, by the way. the long version:</span> <span class="a">man bernd</span>`;
+
+  const LOGS = {
+    "coffee-7f9c4d": `06:30:00 INFO  grinder started
+06:30:25 INFO  extraction complete: 25s, 36g, perfect
+06:31:02 INFO  human.productivity += 40%
+14:00:13 WARN  caffeine level low, scheduling refill
+16:30:41 <span class="w">ERROR refill denied by sleep-controller: "too late for coffee"</span>
+16:30:42 INFO  ignoring sleep-controller`,
+    "homelab-5b8d2e": `INFO  reconciling 47 HelmReleases
+WARN  upgrade available for: everything
+INFO  restart #42 (on purpose, testing restart #43)
+<span class="w">ERROR upstream unreachable. probably DNS.</span>
+INFO  it was DNS.
+INFO  audit: debug session homelab ended`,
+    "curiosity-0": `INFO  opened tab: "how does etcd raft actually work"
+INFO  opened tab: "raft paper pdf"
+INFO  opened tab 147
+WARN  memory pressure: browser tabs
+INFO  new idea: rewrite it in rust?
+INFO  idea rejected by admission webhook sanity-check`,
+    "side-project-x9k2": `<span class="w">Error from server (BadRequest):</span> container "side-project" is waiting to start: ContainerCreating
+<span class="m">reason: Insufficient time. 0/1 weekends available.</span>`,
+    "sleep-6d4f8a": `23:00:00 INFO  starting sleep
+23:00:04 INFO  just one more reconcile
+23:41:17 INFO  just one more
+00:58:02 INFO  ok, really the last one
+06:30:00 <span class="w">ERROR liveness probe failed: alarm clock</span>
+06:30:01 INFO  back-off restarting failed container`,
+    "my-place-0": `INFO  home. the alps on one side, the danube on the other.
+INFO  coffee comes with a glass of water, and no one rushes you.
+INFO  "servus" works as both hello and goodbye. efficient.
+INFO  small country, sensible defaults, good bread.
+INFO  running happily since day one.`,
+  };
+
+  const TRAIN = String.raw`      ====        ________                ___________
+  _D _|  |_______/        \__I_I_____===__|_________|
+   |(_)---  |   H\________/ |   |        =|___ ___|
+   /     |  |   H  |  |     |   |         ||_| |_||
+  |      |  |   H  |__--------------------| [___] |
+  | ________|___H__/__|_____/[][]~\_______|       |
+  |/ |   |-----------I_____I [][] []  D   |=======|_
+__/ =| o |=-~~\  /~~\  /~~\  /~~\ ____Y___________|__
+ |/-=|___|=    ||    ||    ||    |_____/~\___/
+  \_/      \O=====O=====O=====O_/      \_/`;
+
+  const HELP = `this shell behaves (mostly) like the real thing.
+
+  <span class="a">whoami</span>           who is this
+  <span class="a">man bernd</span>        the long version: work, skills, projects
+  <span class="a">kubectl</span> ...      the usual verbs work: get, describe, logs, top, explain, ...
+  <span class="a">flux</span> ...         it's a gitops homelab, after all
+  <span class="a">ls</span>, <span class="a">cd</span>, <span class="a">cat</span>      look around
+  <span class="a">dig</span>, <span class="a">ping</span>        network stuff
+  <span class="a">git</span>, <span class="a">curl</span>, ...   the usual suspects
+  <span class="a">history</span>, <span class="a">clear</span>   shell stuff
+
+<span class="m">tab completes. not everything is listed. curiosity gets rewarded.</span>`;
+
+  const CRDS = `<span class="m">NAME                                         CREATED AT</span>
+certificates.cert-manager.io                 2023-03-14T09:12:00Z
+gitrepositories.source.toolkit.fluxcd.io     2023-03-14T09:12:01Z
+helmreleases.helm.toolkit.fluxcd.io          2023-03-14T09:12:01Z
+<span class="a">humans.klaus.onl</span>                             <span class="a">since day one</span>
+kustomizations.kustomize.toolkit.fluxcd.io   2023-03-14T09:12:01Z`;
+
+  const HUMANS = `<span class="m">NAME    STATUS    MOOD      AGE</span>
+bernd   <span class="ok">Running</span>   curious   since day one`;
+
+  const HUMAN_YAML = `apiVersion: klaus.onl/v1
+kind: Human
+metadata:
+  name: bernd
+  namespace: austria
+  labels:
+    role: cloud-native-nerd
+    habitat: homelab
+spec:
+  coffee:
+    requests: 2
+    limits: unlimited
+  sleep:
+    requests: 8h
+  languages: [de-AT, en]
+status:
+  phase: Running
+  conditions:
+  - type: Caffeinated
+    status: "True"
+  - type: Rested
+    status: "False"
+    reason: SeeSleepPodLogs`;
+
+  const EXPLAIN = `<span class="m">KIND:</span>     Human
+<span class="m">VERSION:</span>  klaus.onl/v1
+
+<span class="m">DESCRIPTION:</span>
+     A Human runs the workloads that can't be containerized. Mostly coffee.
+
+<span class="m">FIELDS:</span>
+   spec.coffee      &lt;Object&gt;     required. no defaults, no exceptions.
+   spec.sleep       &lt;Object&gt;     optional, apparently.
+   spec.languages   &lt;[]string&gt;   de-AT, en. yaml on weekends.
+   status.phase     &lt;string&gt;     Running. always Running.`;
+
+  const NODE_DESCRIBE = `Name:         homelab-01
+Roles:        control-plane,worker
+Taints:       &lt;none&gt; <span class="m">(we don't judge)</span>
+Conditions:
+  <span class="m">Type             Status   Message</span>
+  Ready            <span class="ok">True</span>     kubelet is posting ready status
+  MemoryPressure   <span class="w">True</span>     browser tabs
+  DiskPressure     False    plenty of space for more side projects
+  PIDPressure      False    unless someone runs a fork bomb
+Capacity:
+  cpu:     10
+  memory:  63Gi
+  coffee:  2`;
+
+  const MAN = `BERND(1)                     Human Manual                     BERND(1)
+
+<b>NAME</b>
+     bernd – cloud native nerd
+
+<b>SYNOPSIS</b>
+     bernd [--coffee] [--homelab] [-v | --verbose-k8s] [--easteregg]
+
+<b>DESCRIPTION</b>
+     a tech-obsessed nerd who also gets the business side.
+     from strategy to implementation. no bullshit.
+
+<b>WORK</b>
+     Unit Lead Cloud Native at Evoila.
+     Lecturer at Hochschule Burgenland.
+
+<b>SKILLS</b>
+     #cloudnative #kubernetes #networking #gitops
+     #infrastructure #azure #vmware #leadership #mentor
+
+<b>PROJECTS</b>
+     homelab      HA Talos cluster, full GitOps
+     klaus.onl    this page. yes, the shell is the project.
+     dns          authoritative PowerDNS on fly.io with an anycast IP
+     asn          own autonomous system number and peerings
+
+<b>OPTIONS</b>
+     --coffee       required. behaviour without it is undefined.
+     --homelab      enabled by default. cannot be disabled.
+     -v             talks about GitOps. at length.
+     --easteregg    there's one. this won't tell you where.
+
+<b>ENVIRONMENT</b>
+     LANG    de_AT.UTF-8 (native) · en_US.UTF-8 (fluent). says "servus" either way.
+
+<b>EXIT STATUS</b>
+     never exits. see <span class="a">exit</span>.
+
+                                                              BERND(1)`;
+
+  // Oma's memorial. Stored as the real text so a decode anywhere shows it.
+  const MEMORY = "Oma, Brunni\n† 2026\n\nIn liebevoller Erinnerung.";
+  // UTF-8 safe base64 (the memorial contains "†").
+  const b64e = t => btoa(String.fromCharCode(...new TextEncoder().encode(t)));
+  const b64d = t => new TextDecoder().decode(Uint8Array.from(atob(t), ch => ch.charCodeAt(0)));
+
+  const SECRETS = {
+    life: {
+      "coffee-recipe": { age: "since 06:30", data: { recipe: "18g in, 36g out, 25 seconds. no sugar. ever." } },
+      "homelab-root-password": { age: "1337d", data: { password: "wrong lead. root isn't behind a password." } },
+      "wifi-password": { age: "forever", data: { ssid: "PrettyFlyForAWiFi", password: "correcthorsebatterystaple" } },
+      "side-project-motivation": { age: "3 months", data: {} },
+    },
+    austria: {
+      // Visible only once isRoot is true (see secrets()). Decode memory → remembrance().
+      "oma-memory": { age: "forever", data: { memory: MEMORY }, rootOnly: true },
+    },
+  };
+  const DECODE_JOKES = {
+    "correcthorsebatterystaple": "xkcd 936 approved. nobody will ever guess it.",
+    "PrettyFlyForAWiFi": "yes, that's the actual ssid.",
+    "18g in, 36g out, 25 seconds. no sugar. ever.": "now you know. guard it with your life.",
+  };
+  const SEALED = name => `<span class="w">Error from server (Forbidden):</span> secret "${esc(name)}" is sealed by oma. not even cluster-admin can read it.`;
+
+  // Pads columns like kubectl does. The first row is the header.
+  const table = rows => {
+    const w = rows[0].map((_, i) => Math.max(...rows.map(r => r[i].length)));
+    return rows.map((r, n) => {
+      const line = esc(r.map((c, i) => i < r.length - 1 ? c.padEnd(w[i] + 3) : c).join(""));
+      return n ? line : `<span class="m">${line}</span>`;
+    }).join("\n");
+  };
+
+  const visible = (ns, v) => !v.rootOnly || isRoot;
+  const nsForbidden = (ns) => (ns === "austria" && !isRoot)
+    ? `<span class="w">Error from server (Forbidden):</span> secrets is forbidden: User "${USER}" cannot list resource "secrets" in namespace "austria"`
+    : null;
+
+  function secrets(ns, name, output) {
+    const spaces = ns === "*" ? Object.keys(SECRETS) : [ns];
+    if (!name) {
+      if (ns !== "*") { const f = nsForbidden(ns); if (f) return f; }
+      const rows = [["NAME", "TYPE", "DATA", "AGE"]];
+      if (ns === "*") rows[0].unshift("NAMESPACE");
+      for (const n of spaces) for (const [k, v] of Object.entries(SECRETS[n] || {})) {
+        if (!visible(n, v)) continue;
+        const row = [k, "Opaque", String(Object.keys(v.data).length), v.age];
+        if (ns === "*") row.unshift(n);
+        rows.push(row);
+      }
+      return rows.length > 1 ? table(rows) : `No resources found in ${esc(ns)} namespace.`;
+    }
+    const f = nsForbidden(ns); if (f) return f;
+    const sec = (SECRETS[ns] || {})[name];
+    if (!sec || !visible(ns, sec)) return `<span class="w">Error from server (NotFound):</span> secrets "${esc(name)}" not found`;
+    if (sec.sealed && output) return SEALED(name);
+    const keys = Object.keys(sec.data);
+    if (output === "yaml") {
+      const data = keys.length ? "data:\n" + keys.map(k => `  ${k}: ${b64e(sec.data[k])}`).join("\n") : "data: {}";
+      return `apiVersion: v1
+kind: Secret
+metadata:
+  name: ${esc(name)}
+  namespace: ${esc(ns)}
+type: Opaque
+${data}${keys.length ? "" : `\n\n<span class="m"># empty. like the motivation.</span>`}`;
+    }
+    const jp = output.match(/^jsonpath=['"]?\{\.data\.([\w.-]+)\}['"]?$/);
+    if (jp) return sec.data[jp[1]] !== undefined ? b64e(sec.data[jp[1]]) : "";
+    return table([["NAME", "TYPE", "DATA", "AGE"], [name, "Opaque", String(keys.length), sec.age]]);
+  }
+
+  function describeSecret(ns, name) {
+    const sec = (SECRETS[ns] || {})[name];
+    if (!name) return `<span class="w">error:</span> which one? try <span class="a">kubectl get secrets</span>`;
+    if (!sec) return `<span class="w">Error from server (NotFound):</span> secrets "${esc(name)}" not found`;
+    if (sec.sealed) return SEALED(name);
+    const keys = Object.keys(sec.data);
+    const short = keys.some(k => sec.data[k].length < 8) ? `\n\n<span class="m">7 bytes. suspiciously short.</span>` : "";
+    return `Name:         ${esc(name)}
+Namespace:    ${esc(ns)}
+Type:         Opaque
+
+Data
+====
+${keys.map(k => `${k}:  ${sec.data[k].length} bytes`).join("\n") || "<span class=\"m\">(none)</span>"}${short}`;
+  }
+
+  // `… | base64 -d`: decodes whatever the left side prints, like a real pipe.
+  function base64Decode(left) {
+    let encoded = null;
+    const echoM = left.match(/^echo\s+(?:-n\s+)?(['"]?)(.*)\1$/);
+    const kM = left.match(/^(?:kubectl|k) get secrets? (\S+)(.*)$/);
+    if (echoM) encoded = echoM[2];
+    else if (kM) {
+      const rest = kM[2];
+      const nsM = rest.match(/(?:-n|--namespace)[= ]?(\S+)/);
+      const outM = rest.match(/(?:-o|--output)[= ]?(\S+)/);
+      const ns = nsM ? nsM[1] : "life";
+      const f = nsForbidden(ns); if (f) return print(f);
+      const sec = (SECRETS[ns] || {})[kM[1]];
+      if (sec && sec.sealed) return print(SEALED(kM[1]));
+      if (sec && !visible(ns, sec)) return print(`<span class="w">Error from server (NotFound):</span> secrets "${esc(kM[1])}" not found`);
+      const out = outM ? secrets(ns, kM[1], outM[1]) : "";
+      if (outM && /^jsonpath/.test(outM[1])) encoded = out;
+      else return print(`base64: invalid input <span class="m">(decode a single value, e.g. -o jsonpath='{.data.password}')</span>`);
+    } else {
+      capture = [];
+      try { exec(left); } finally { encoded = unescapeHtml(capture.join("\n")); capture = null; }
+      if (/^zsh: command not found/.test(encoded)) return print(esc(encoded));
+      if (!encoded.trim()) return;
+    }
+    let decoded;
+    try { decoded = b64d(encoded.trim()); } catch { return print(`base64: invalid input`); }
+    if (decoded === MEMORY) return remembrance();
+    print(esc(decoded) + (DECODE_JOKES[decoded] ? `\n<span class="m">${DECODE_JOKES[decoded]}</span>` : ""));
+  }
+
+  /* ---------- filesystem ---------- */
+
+  const DIRS = {
+    "~": { short: `about.txt  jausn.txt  <span class="a">github@</span>  <span class="a">.kube/</span>`, long:
+`-rw-r--r--  1 berndinox  staff  142  about.txt
+-rw-r--r--  1 berndinox  staff  318  jausn.txt
+lrwxr-xr-x  1 berndinox  staff   28  <span class="a">github</span> -&gt; https://github.com/Berndinox
+drwx------  3 berndinox  staff   96  <span class="a">.kube/</span>`, entries: ["about.txt", "jausn.txt", "github/", ".kube/"] },
+    "~/.kube": { short: `config`, long: `-rw-------  1 berndinox  staff  5427  config`, entries: ["config"] },
+    "~/github": { entries: [] },
+  };
+  const JAUSN = `die jausn
+---------
+
+the most important reconcile loop of the day.
+
+  10:00   erste kaffee           <span class="ok">Running</span>
+  10:00   weckerl mit käse       <span class="ok">Running</span>
+  15:00   melange + mehlspeis    <span class="ok">Running</span>
+  17:00   achtung: ned zu spät, sonst schläfst schlecht
+
+status:  the only cronjob that never fails.
+
+<span class="m"># whoever books a meeting during the jausn gets drained first.</span>`;
+  const FILES = { "~/about.txt": WHOAMI, "~/jausn.txt": JAUSN, "~/.kube/config": KUBECONFIG };
+  let repos = null;
+
+  // Resolves a path against cwd. Returns null for anything above ~, "/" for the root.
+  function resolve(p) {
+    if (!p || p === "~") return "~";
+    if (p.startsWith("/")) return "/";
+    const parts = p.startsWith("~") ? p.slice(1).split("/") : (cwd === "~" ? [] : cwd.slice(2).split("/")).concat(p.split("/"));
+    const stack = [];
+    for (const part of parts) {
+      if (!part || part === ".") continue;
+      if (part === "..") { if (!stack.length) return null; stack.pop(); }
+      else stack.push(part.replace(/@$/, ""));
+    }
+    return stack.length ? "~/" + stack.join("/") : "~";
+  }
+
+  async function loadRepos() {
+    if (repos) return repos;
+    const res = await fetch("https://api.github.com/users/Berndinox/repos?per_page=100&sort=pushed");
+    if (!res.ok) throw new Error(res.status);
+    repos = (await res.json()).filter(r => !r.fork);
+    DIRS["~/github"].entries = repos.map(r => r.name);
+    return repos;
+  }
+  async function withRepos(fn) {
+    busy = true; input.disabled = true;
+    try { fn(await loadRepos()); }
+    catch { print(`ls: cannot reach github.com. it's always DNS.\n→ ${link("https://github.com/Berndinox", "github.com/Berndinox")}`); }
+    finally { busy = false; input.disabled = false; input.focus({ preventScroll: true }); }
+  }
+
+  // Non-root is confined to ~ (restricted shell). Absolute paths and ".." above home are off limits.
+  const outsideHome = raw => raw && (raw.startsWith("/") || resolve(raw) === null || resolve(raw) === "/");
+  const jailed = (c, raw) => `${c}: ${esc(raw)}: Permission denied\n<span class="m">this account is confined to its home directory.</span>`;
+
+  function ls(args) {
+    const long = args.some(a => /^-\w*l/.test(a));
+    const rawArg = args.find(a => !a.startsWith("-"));
+    const all = args.some(a => /^-\w*a/.test(a));
+    if (isRoot) return rootLs(rootResolve(rawArg || "."), long, all);
+    const target = resolve(rawArg || ".");
+    if (target === "~/github") return withRepos(list => {
+      if (!list.length) return print(`<span class="m">(no public repos yet)</span>`);
+      const w = Math.max(...list.map(r => r.name.length)) + 2;
+      print(list.map(r => link(r.html_url, r.name) + " ".repeat(w - r.name.length) +
+        `<span class="m">★ ${r.stargazers_count}  ${esc((r.description || "").slice(0, 60))}</span>`).join("\n"));
+    });
+    if (target === "/" || target === null) return print(jailed("ls", rawArg || "/"));
+    if (DIRS[target]) return print(long ? DIRS[target].long : DIRS[target].short);
+    if (FILES[target]) return print(target.split("/").pop());
+    print(`ls: ${esc(args.find(a => !a.startsWith("-")))}: No such file or directory`);
+  }
+
+  function cd(args) {
+    const arg = args[0];
+    if (isRoot) {
+      const t = arg ? rootResolve(arg) : "/root";
+      const key = t === "/" ? "/" : t.replace(/\/$/, "");
+      if (ROOTFS_DIRS[key]) return setCwd(key);
+      if (ROOTFS_FILES[key]) return print(`cd: not a directory: ${esc(arg)}`);
+      return print(`cd: no such file or directory: ${esc(arg)}`);
+    }
+    if (!arg || arg === "~") {
+      if (cwd === "~") return print(`you're already home.`);
+      return setCwd("~");
+    }
+    if (outsideHome(arg)) return print(jailed("cd", arg));
+    const target = resolve(arg);
+    if (target === "~/github") { print(`<span class="m">following symlink → github.com/Berndinox</span>`); return setCwd(target); }
+    if (DIRS[target]) return setCwd(target);
+    if (FILES[target]) return print(`cd: not a directory: ${esc(arg)}`);
+    print(`cd: no such file or directory: ${esc(arg)}`);
+  }
+
+  function cat(args) {
+    if (!args.length) return print(`cat: waiting for stdin... just kidding.`);
+    if (isRoot) {
+      const t = rootResolve(args[0]);
+      if (ROOTFS_FILES[t]) return print(ROOTFS_FILES[t]);
+      if (ROOTFS_DIRS[t === "/" ? "/" : t.replace(/\/$/, "")]) return print(`cat: ${esc(args[0])}: Is a directory`);
+      return print(`cat: ${esc(args[0])}: No such file or directory`);
+    }
+    if (outsideHome(args[0])) return print(jailed("cat", args[0]));
+    const target = resolve(args[0]);
+    if (target && FILES[target]) return print(FILES[target]);
+    if (target && DIRS[target]) return print(`cat: ${esc(args[0])}: Is a directory`);
+    if (target && target.startsWith("~/github/")) {
+      const name = target.slice(9);
+      return withRepos(list => {
+        const r = list.find(r => r.name === name);
+        print(r ? `${esc(r.description || "(no description)")}\n→ ${link(r.html_url, r.html_url.replace("https://", ""))}`
+                : `cat: ${esc(args[0])}: No such file or directory`);
+      });
+    }
+    print(`cat: ${esc(args[0])}: No such file or directory`);
+  }
+
+  // head / tail: first or last N lines of a local file (spans never cross newlines, so slicing is safe).
+  function headTail(c, args) {
+    let n = 10;
+    const m = args.join(" ").match(/-n\s*(\d+)|(?:^|\s)-(\d+)/);
+    if (m) n = +(m[1] || m[2]);
+    const path = args.find(a => !a.startsWith("-") && !/^\d+$/.test(a));
+    if (!path) return;
+    let content;
+    if (isRoot) {
+      const t = rootResolve(path);
+      if (ROOTFS_FILES[t] !== undefined) content = ROOTFS_FILES[t];
+      else if (ROOTFS_DIRS[t === "/" ? "/" : t.replace(/\/$/, "")]) return print(`${c}: error reading '${esc(path)}': Is a directory`);
+      else return print(`${c}: cannot open '${esc(path)}' for reading: No such file or directory`);
+    } else {
+      if (outsideHome(path)) return print(jailed(c, path));
+      const t = resolve(path);
+      if (t && FILES[t]) content = FILES[t];
+      else if (t && DIRS[t]) return print(`${c}: error reading '${esc(path)}': Is a directory`);
+      else return print(`${c}: cannot open '${esc(path)}' for reading: No such file or directory`);
+    }
+    const lines = content.split("\n");
+    return print((c === "head" ? lines.slice(0, n) : lines.slice(-n)).join("\n"));
+  }
+
+  // tree: render the filesystem from cwd (or a path), like the real tool.
+  function tree(args) {
+    const all = args.some(a => /^-\w*a/.test(a));
+    const startRaw = args.find(a => !a.startsWith("-"));
+    const map = isRoot ? ROOTFS_DIRS : DIRS;
+    const keyOf = k => k === "/" ? "/" : k.replace(/\/$/, "");
+    let start;
+    if (isRoot) start = startRaw ? rootResolve(startRaw) : cwd;
+    else {
+      if (startRaw && outsideHome(startRaw)) return print(jailed("tree", startRaw));
+      start = startRaw ? resolve(startRaw) : cwd;
+    }
+    const entriesOf = key => { const node = map[keyOf(key)]; return (Array.isArray(node) ? node : node && node.entries) || []; };
+    if (!start || !map[keyOf(start)]) return print(`${esc(startRaw || start || ".")}  [error opening dir]\n\n0 directories, 0 files`);
+    let dirs = 0, files = 0;
+    const lines = [start];
+    (function walk(key, prefix) {
+      const entries = entriesOf(key).filter(e => all || !e.startsWith("."));
+      entries.forEach((e, i) => {
+        const last = i === entries.length - 1, branch = last ? "└── " : "├── ";
+        const nm = e.replace(/\/$/, "");
+        if (!isRoot && keyOf(key) === "~" && e === "github/") { files++; return lines.push(prefix + branch + `<span class="a">github</span> -> https://github.com/Berndinox`); }
+        if (e.endsWith("/")) {
+          dirs++; lines.push(prefix + branch + `<span class="a">${esc(nm)}</span>`);
+          walk((keyOf(key) === "/" ? "" : keyOf(key)) + "/" + nm, prefix + (last ? "    " : "│   "));
+        } else { files++; lines.push(prefix + branch + esc(nm)); }
+      });
+    })(start, "");
+    lines.push("", `${dirs} director${dirs === 1 ? "y" : "ies"}, ${files} file${files === 1 ? "" : "s"}`);
+    return print(lines.join("\n"));
+  }
+
+  /* ---------- kubectl ---------- */
+
+  // Workload objects behind the pods above. Rows: name + columns after NAME.
+  const K_NAMESPACES = ["life", "austria", "flux-system", "kube-system"];
+  const K_DEPLOY = {
+    life: [["coffee", "1/1", "1", "1", "1337d"], ["homelab", "1/1", "1", "1", "1337d"],
+      ["side-project", "0/1", "1", "0", "3mo"], ["sleep", "0/1", "1", "0", "1337d"]],
+    "flux-system": [["coffee-controller", "1/1", "1", "1", "since 06:30"], ["helm-controller", "1/1", "1", "1", "1337d"],
+      ["kustomize-controller", "1/1", "1", "1", "1337d"], ["sleep-controller", "0/1", "1", "0", "too long"],
+      ["source-controller", "1/1", "1", "1", "1337d"]],
+  };
+  const K_STS = { life: [["curiosity", "1/1", "always"]] };
+  const K_SVC = {
+    life: [["coffee", "ClusterIP", "10.96.4.18", "<none>", "80/TCP", "1337d"], ["curiosity", "ClusterIP", "None", "<none>", "8080/TCP", "always"],
+      ["homelab", "ClusterIP", "10.96.13.37", "<none>", "443/TCP", "1337d"]],
+    "flux-system": [["notification-controller", "ClusterIP", "10.96.20.3", "<none>", "80/TCP", "1337d"],
+      ["source-controller", "ClusterIP", "10.96.20.1", "<none>", "80/TCP", "1337d"], ["webhook-receiver", "ClusterIP", "10.96.20.2", "<none>", "80/TCP", "1337d"]],
+  };
+  const K_CM = {
+    life: [["coffee-config", "2", "1337d"], ["kube-root-ca.crt", "1", "1337d"]],
+    austria: [["kube-root-ca.crt", "1", "since birth"]],
+    "flux-system": [["kube-root-ca.crt", "1", "1337d"]],
+  };
+  const K_PVC = { life: [["curiosity-data", "Bound", "pvc-c0ffee42-1337", "147Gi", "RWO", "longhorn", "1337d"],
+    ["side-project-data", "Pending", "", "", "", "longhorn", "3mo"]] };
+  const K_PV = [["pvc-c0ffee42-1337", "147Gi", "RWO", "Delete", "Bound", "life/curiosity-data", "longhorn", "1337d"]];
+  // Gateway API, no Ingress objects. The homelab pod serves this very page.
+  const K_ROUTES = { life: [["homelab", '["klaus.onl"]', "1337d"]] };
+  const KIND_LABEL = { deployment: "Deployment", deployments: "Deployment", deploy: "Deployment",
+    statefulset: "StatefulSet", statefulsets: "StatefulSet", sts: "StatefulSet",
+    service: "Service", services: "Service", svc: "Service", configmap: "ConfigMap", configmaps: "ConfigMap", cm: "ConfigMap",
+    pod: "Pod", pods: "Pod", po: "Pod", namespace: "Namespace", ns: "Namespace", secret: "Secret", job: "Job", cronjob: "CronJob" };
+  // GitOps admission webhook: manual changes must go through git.
+  const denyWebhook = (ref) => `<span class="w">Error from server: admission webhook "deny-manual-changes.flux-system.svc" denied the request:</span>\n<span class="m">${ref}: changes must go through git, not kubectl.</span>`;
+
+  // A namespaced listing like kubectl prints it; -A adds the NAMESPACE column.
+  function nsTable(map, header, ns, name, res) {
+    if (ns === "kube-system") return `<span class="w">Error from server (Forbidden):</span> told you not to look.`;
+    if (ns !== "*" && !K_NAMESPACES.includes(ns)) return `No resources found in ${esc(ns)} namespace.`;
+    const rows = [];
+    for (const n of ns === "*" ? Object.keys(map) : [ns])
+      for (const r of map[n] || []) if (!name || r[0] === name) rows.push(ns === "*" ? [n, ...r] : r);
+    if (!rows.length) return name ? `<span class="w">Error from server (NotFound):</span> ${res} "${esc(name)}" not found` : `No resources found in ${esc(ns)} namespace.`;
+    return table([ns === "*" ? ["NAMESPACE", ...header] : header, ...rows]);
+  }
+
+  // Pod rows as plain columns [name, ready, status, restarts, age], parsed from the pod tables.
+  const POD_SRC = { life: PODS, austria: PODS_AT, "flux-system": PODS_FLUX };
+  function podRows(ns) {
+    return (POD_SRC[ns] || "").split("\n").slice(1).map(l => {
+      const c = unescapeHtml(l).trim().split(/\s{2,}/);
+      // "42 (on purpose) forever" overflows its column: split off the AGE word.
+      if (c.length < 5) { const m = c[c.length - 1].match(/^(.*) (\S+)$/); if (m) c.splice(-1, 1, m[1], m[2]); }
+      return c;
+    });
+  }
+  const podApp = name => name.replace(/-[a-z0-9]{4,10}$/, "").replace(/-0$/, "");
+  // "app=coffee" or "app.kubernetes.io/name=coffee"; "!=" negates. Empty selector matches all.
+  function matchSelector(podName, selector) {
+    if (!selector) return true;
+    return selector.split(",").every(term => {
+      const m = term.match(/^(app|app\.kubernetes\.io\/name)(!?=)(.+)$/);
+      if (!m) return false;
+      return (podApp(podName) === m[3]) === (m[2] === "=");
+    });
+  }
+  // Stable fake pod IP per name; pending pods have none.
+  const podIP = (name, status) => status === "Pending" ? "<none>"
+    : `10.244.${[...name].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 3}.${[...name].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 250, 7) + 2}`;
+  function podObject(ns, c) {
+    return { apiVersion: "v1", kind: "Pod",
+      metadata: { name: c[0], namespace: ns, labels: { "app.kubernetes.io/name": podApp(c[0]) } },
+      spec: { nodeName: c[2] === "Pending" ? undefined : "homelab-01", containers: [{ name: podApp(c[0]), image: podApp(c[0]) + ":latest" }] },
+      status: { phase: c[2] === "Pending" ? "Pending" : "Running", podIP: podIP(c[0], c[2]) === "<none>" ? undefined : podIP(c[0], c[2]) } };
+  }
+  // Minimal YAML for plain objects (strings, numbers, nested objects, arrays of objects).
+  function toYaml(v, ind = "") {
+    if (Array.isArray(v)) return v.map(x => `${ind}- ` + toYaml(x, ind + "  ").trimStart()).join("\n");
+    return Object.entries(v).filter(([, x]) => x !== undefined).map(([k, x]) =>
+      typeof x === "object" ? `${ind}${k}:\n${toYaml(x, Array.isArray(x) ? ind : ind + "  ")}` : `${ind}${k}: ${x}`).join("\n");
+  }
+
+  // `kubectl get all`: pods, services, deployments and statefulsets with type prefixes.
+  function getAll(ns) {
+    if (ns === "kube-system") return `<span class="w">Error from server (Forbidden):</span> told you not to look.`;
+    if (ns !== "*" && !K_NAMESPACES.includes(ns)) return `No resources found in ${esc(ns)} namespace.`;
+    const spaces = ns === "*" ? ["life", "austria", "flux-system"] : [ns];
+    const lead = n => ns === "*" ? [n] : [];
+    const head = h => ns === "*" ? ["NAMESPACE", ...h] : h;
+    const parts = [];
+    const pods = spaces.flatMap(n => podRows(n).map(c => [...lead(n), "pod/" + c[0], ...c.slice(1)]));
+    if (pods.length) parts.push(table([head(["NAME", "READY", "STATUS", "RESTARTS", "AGE"]), ...pods]));
+    const section = (map, h, prefix) => {
+      const rows = spaces.flatMap(n => (map[n] || []).map(r => [...lead(n), prefix + r[0], ...r.slice(1)]));
+      if (rows.length) parts.push(table([head(h), ...rows]));
+    };
+    section(K_SVC, ["NAME", "TYPE", "CLUSTER-IP", "EXTERNAL-IP", "PORT(S)", "AGE"], "service/");
+    section(K_DEPLOY, ["NAME", "READY", "UP-TO-DATE", "AVAILABLE", "AGE"], "deployment.apps/");
+    section(K_STS, ["NAME", "READY", "AGE"], "statefulset.apps/");
+    return parts.length ? parts.join("\n\n") : `No resources found in ${esc(ns)} namespace.`;
+  }
+
+  function kubectl(args) {
+    let ns = "life", output = "", selector = "";
+    const pos = [];
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      let m;
+      if (a === "-n" || a === "--namespace") ns = args[++i] || ns;
+      else if ((m = a.match(/^-{0,2}(?:n|namespace)=(.+)$/))) ns = m[1];
+      else if ((m = a.match(/^-n(\w.*)$/))) ns = m[1];
+      else if (a === "-A" || a === "--all-namespaces") ns = "*";
+      else if (a === "-l" || a === "--selector") selector = args[++i] || "";
+      else if ((m = a.match(/^(?:-l|--selector=)(.+)$/))) selector = m[1].replace(/^=/, "");
+      else if (a === "-o" || a === "--output") output = args[++i] || "";
+      else if ((m = a.match(/^(?:-o|--output=)(.+)$/))) output = m[1].replace(/^=/, "");
+      else if (!a.startsWith("-")) pos.push(a);
+    }
+    const [verb, kind, name] = pos;
+    const isPods = /^(po|pod|pods)$/.test(kind || "");
+    const isNodes = /^(no|node|nodes)$/.test(kind || "");
+    const isHuman = /^(human|humans)$/.test(kind || "") || /^bernd/.test(kind || "");
+
+    if (!verb || verb === "help" || args.includes("--help")) return print(`kubectl controls the Kubernetes cluster manager.
+
+ Find more information at: https://kubernetes.io/docs/reference/kubectl/
+
+<span class="m">Basic Commands:</span>
+  get, describe, explain, delete, edit, apply
+<span class="m">Troubleshooting:</span>
+  logs, exec, top, events, debug, auth
+<span class="m">Cluster Management:</span>
+  cluster-info, cordon, uncordon, drain, rollout, scale
+<span class="m">Settings:</span>
+  config, version, api-resources`);
+    if (verb === "version") return print(args.includes("--client")
+      ? `Client Version: v1.36.2\nKustomize Version: v5.7.1`
+      : `Client Version: v1.36.2\nKustomize Version: v5.7.1\nServer Version: v1.34.2`);
+    if (verb === "cluster-info") return print(`<span class="ok">Kubernetes control plane</span> is running at <span class="a">https://homelab-01:6443</span>
+<span class="ok">CoreDNS</span> is running at <span class="a">https://homelab-01:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy</span>
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.`);
+    if (verb === "config") {
+      if (kind === "current-context") return print("homelab");
+      if (kind === "get-contexts") return print(table([["CURRENT", "NAME", "CLUSTER", "AUTHINFO", "NAMESPACE"], ["*", "homelab", "homelab", USER, "life"]]));
+      if (kind === "use-context") return print(name === "homelab" ? `Switched to context "homelab".` : `error: no context exists with the name: "${esc(name || "")}"`);
+      if (kind === "view") return print(`apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://homelab-01:6443
+  name: homelab
+contexts:
+- context:
+    cluster: homelab
+    namespace: life
+    user: ${USER}
+  name: homelab
+current-context: homelab
+kind: Config
+users:
+- name: ${USER}
+  user:
+    token: REDACTED`);
+      return print(`error: unknown command "${esc(kind || "")}" for "kubectl config"\n<span class="m">try current-context, get-contexts, use-context, view</span>`);
+    }
+
+    if (verb === "api-resources") return print(table([
+      ["NAME", "SHORTNAMES", "APIVERSION", "NAMESPACED", "KIND"],
+      ["configmaps", "cm", "v1", "true", "ConfigMap"],
+      ["events", "ev", "v1", "true", "Event"],
+      ["namespaces", "ns", "v1", "false", "Namespace"],
+      ["nodes", "no", "v1", "false", "Node"],
+      ["persistentvolumeclaims", "pvc", "v1", "true", "PersistentVolumeClaim"],
+      ["persistentvolumes", "pv", "v1", "false", "PersistentVolume"],
+      ["pods", "po", "v1", "true", "Pod"],
+      ["secrets", "", "v1", "true", "Secret"],
+      ["services", "svc", "v1", "true", "Service"],
+      ["deployments", "deploy", "apps/v1", "true", "Deployment"],
+      ["statefulsets", "sts", "apps/v1", "true", "StatefulSet"],
+      ["customresourcedefinitions", "crd,crds", "apiextensions.k8s.io/v1", "false", "CustomResourceDefinition"],
+      ["httproutes", "", "gateway.networking.k8s.io/v1", "true", "HTTPRoute"],
+      ["humans", "", "klaus.onl/v1", "true", "Human"],
+      ["helmreleases", "hr", "helm.toolkit.fluxcd.io/v2", "true", "HelmRelease"],
+      ["kustomizations", "ks", "kustomize.toolkit.fluxcd.io/v1", "true", "Kustomization"],
+      ["gitrepositories", "gitrepo", "source.toolkit.fluxcd.io/v1", "true", "GitRepository"],
+    ]));
+
+    if (verb === "scale") {
+      const target = (/^(deploy|deployments?|sts|statefulsets?)$/.test(kind || "") ? name : (kind || "").replace(/^(deploy|deployments?|sts|statefulsets?)\//, "")) || "";
+      const repArg = args.find(a => a.startsWith("--replicas"));
+      const n = repArg ? (repArg.includes("=") ? repArg.split("=")[1] : args[args.indexOf(repArg) + 1]) : null;
+      if (!n) return print(`error: required flag(s) "replicas" not set`);
+      if (!(K_DEPLOY[ns] || []).some(d => d[0] === target) && !(K_STS[ns] || []).some(d => d[0] === target))
+        return print(`<span class="w">Error from server (NotFound):</span> deployments.apps "${esc(target)}" not found`);
+      const joke = target === "coffee" ? (+n === 0 ? `<span class="w">error:</span> PodDisruptionBudget "morning-routine" says no.` : `<span class="w">${+n - 1} replica(s) Pending:</span> 0/1 nodes are available: insufficient coffee beans.`)
+        : target === "sleep" ? `<span class="m">now ${esc(n)} pods in CrashLoopBackOff instead of one.</span>`
+        : target === "side-project" ? `<span class="m">${esc(n)} replicas, still 0% done. parallelism doesn't help.</span>`
+        : target === "homelab" && +n === 0 ? `<span class="w">warning:</span> that pod serves this page.` : "";
+      if (target === "coffee" && +n === 0) return print(joke);
+      return print(`deployment.apps/${esc(target)} scaled` + (joke ? "\n" + joke : "") + `\n<span class="m">flux will set it back on the next reconcile. it's in git.</span>`);
+    }
+    if (verb === "get" && kind === "all") return print(getAll(ns));
+    // RBAC: the identity behind this shell may not read it — real Forbidden wording.
+    const rbac = { clusterrole: ["clusterroles", 1], clusterroles: ["clusterroles", 1],
+      clusterrolebinding: ["clusterrolebindings", 1], clusterrolebindings: ["clusterrolebindings", 1],
+      role: ["roles", 0], roles: ["roles", 0], rolebinding: ["rolebindings", 0], rolebindings: ["rolebindings", 0] }[kind || ""];
+    if (verb === "get" && rbac) {
+      const [plural, clusterScoped] = rbac;
+      const scope = clusterScoped ? "at the cluster scope" : `in the namespace "${esc(ns)}"`;
+      const act = name ? `get resource "${plural}"` : `list resource "${plural}"`;
+      return print(`<span class="w">Error from server (Forbidden):</span> ${plural}.rbac.authorization.k8s.io is forbidden: User "${USER}" cannot ${act} in API group "rbac.authorization.k8s.io" ${scope}`);
+    }
+    if (verb === "get" && /^(deploy|deployments?)$/.test(kind || "")) return print(nsTable(K_DEPLOY, ["NAME", "READY", "UP-TO-DATE", "AVAILABLE", "AGE"], ns, name, "deployments.apps"));
+    if (verb === "get" && /^(svc|services?)$/.test(kind || "")) return print(nsTable(K_SVC, ["NAME", "TYPE", "CLUSTER-IP", "EXTERNAL-IP", "PORT(S)", "AGE"], ns, name, "services"));
+    if (verb === "get" && /^(cm|configmaps?)$/.test(kind || "")) return print(nsTable(K_CM, ["NAME", "DATA", "AGE"], ns, name, "configmaps"));
+    if (verb === "get" && /^(pvc|persistentvolumeclaims?)$/.test(kind || "")) return print(nsTable(K_PVC, ["NAME", "STATUS", "VOLUME", "CAPACITY", "ACCESS MODES", "STORAGECLASS", "AGE"], ns, name, "persistentvolumeclaims"));
+    if (verb === "get" && /^(pv|persistentvolumes?)$/.test(kind || "")) {
+      const rows = K_PV.filter(r => !name || r[0] === name);
+      return print(rows.length ? table([["NAME", "CAPACITY", "ACCESS MODES", "RECLAIM POLICY", "STATUS", "CLAIM", "STORAGECLASS", "AGE"], ...rows])
+        : `<span class="w">Error from server (NotFound):</span> persistentvolumes "${esc(name)}" not found`);
+    }
+    if (verb === "get" && /^(ing|ingress|ingresses)$/.test(kind || "")) return print(ns === "kube-system" ? `<span class="w">Error from server (Forbidden):</span> told you not to look.`
+      : ns === "*" ? "No resources found" : `No resources found in ${esc(ns)} namespace.`);
+    if (verb === "get" && /^(httproutes?)$/.test(kind || "")) return print(nsTable(K_ROUTES, ["NAME", "HOSTNAMES", "AGE"], ns, name, "httproutes.gateway.networking.k8s.io"));
+    if (verb === "get" && /^(sts|statefulsets?)$/.test(kind || "")) return print(nsTable(K_STS, ["NAME", "READY", "AGE"], ns, name, "statefulsets.apps"));
+
+    const isSecrets = /^(secret|secrets)$/.test(kind || "");
+    if (verb === "get" && isSecrets) return print(secrets(ns, name, output));
+    if (verb === "describe" && isSecrets) return print(describeSecret(ns, name));
+    if (verb === "get" && isHuman) return print(output === "yaml" ? HUMAN_YAML : HUMANS);
+    if (verb === "get" && /^(crd|crds|customresourcedefinitions?)$/.test(kind || "")) return print(CRDS);
+    if (verb === "explain") return print(isHuman ? EXPLAIN : `error: couldn't find resource. try <span class="a">kubectl explain human</span>`);
+    if (verb === "get" && isPods && selector && !output && ns !== "kube-system") {
+      const spaces = ns === "*" ? Object.keys(POD_SRC) : [ns];
+      const lines = spaces.flatMap(n => (POD_SRC[n] || "").split("\n").slice(1)
+        .filter(l => matchSelector(unescapeHtml(l).trim().split(/\s+/)[0], selector)));
+      if (!lines.length) return print(ns === "*" ? "No resources found" : `No resources found in ${esc(ns)} namespace.`);
+      return print([(POD_SRC[spaces[0]] || PODS).split("\n")[0], ...lines].join("\n"));
+    }
+    if (verb === "get" && isPods && /^(wide|yaml|json)$/.test(output) && ns !== "kube-system") {
+      const spaces = ns === "*" ? Object.keys(POD_SRC) : [ns];
+      const rows = spaces.flatMap(n => podRows(n).filter(c => (!name || c[0].startsWith(name)) && matchSelector(c[0], selector)).map(c => [n, c]));
+      if (!rows.length) return print(name ? `<span class="w">Error from server (NotFound):</span> pods "${esc(name)}" not found` : `No resources found in ${esc(ns)} namespace.`);
+      if (output === "wide") return print(table([[...(ns === "*" ? ["NAMESPACE"] : []), "NAME", "READY", "STATUS", "RESTARTS", "AGE", "IP", "NODE"],
+        ...rows.map(([n, c]) => [...(ns === "*" ? [n] : []), ...c, podIP(c[0], c[2]), c[2] === "Pending" ? "<none>" : "homelab-01"])]));
+      const objs = rows.map(([n, c]) => podObject(n, c));
+      const doc = name && objs.length === 1 ? objs[0] : { apiVersion: "v1", kind: "List", items: objs };
+      return print(output === "json" ? esc(JSON.stringify(doc, null, 2)) : esc(toYaml(doc)));
+    }
+    if (verb === "get" && isPods && name) {
+      const src = { life: PODS, austria: PODS_AT, "flux-system": PODS_FLUX }[ns];
+      if (!src) return print(`<span class="w">Error from server (NotFound):</span> pods "${esc(name)}" not found`);
+      const [head, ...rows] = src.split("\n");
+      const hit = rows.filter(r => r.startsWith(name));
+      return print(hit.length ? [head, ...hit].join("\n") : `<span class="w">Error from server (NotFound):</span> pods "${esc(name)}" not found`);
+    }
+    if (verb === "get" && isPods) {
+      if (ns === "flux-system") return print(PODS_FLUX);
+      if (ns === "life") return print(PODS);
+      if (ns === "austria") return print(PODS_AT);
+      if (ns === "*") return print([PODS, PODS_AT, PODS_FLUX].join("\n\n"));
+      if (ns === "kube-system") return print(`<span class="w">Error from server (Forbidden):</span> told you not to look.`);
+      return print(`No resources found in ${esc(ns)} namespace.`);
+    }
+    if (verb === "get" && /^(ns|namespace|namespaces)$/.test(kind || "")) return print(NAMESPACES);
+    const fluxKind = /^(ks|kustomizations?)$/.test(kind || "") ? KS
+      : /^(hr|helmreleases?)$/.test(kind || "") ? HR
+      : /^(gitrepo|gitrepos|gitrepositor(y|ies))$/.test(kind || "") ? GIT : null;
+    if (verb === "get" && fluxKind) {
+      if (ns !== "flux-system" && ns !== "*") return print(`No resources found in ${esc(ns)} namespace.\n<span class="m">flux keeps its things in flux-system</span>`);
+      const rows = Object.entries(fluxKind)
+        .filter(([n]) => !name || n === name)
+        .map(([n, r]) => [...(ns === "*" ? ["flux-system"] : []), n, n === "side-projects" ? "92d" : "1337d", r.ready ? "True" : "False", r.msg]);
+      if (!rows.length) return print(`<span class="w">Error from server (NotFound):</span> "${esc(name)}" not found`);
+      return print(table([[...(ns === "*" ? ["NAMESPACE"] : []), "NAME", "AGE", "READY", "STATUS"], ...rows]));
+    }
+    if (verb === "get" && isNodes && name && name !== "homelab-01") return print(`<span class="w">Error from server (NotFound):</span> nodes "${esc(name)}" not found`);
+    if (verb === "get" && isNodes && output === "wide") return print(table([
+      ["NAME", "STATUS", "ROLES", "AGE", "VERSION", "INTERNAL-IP", "EXTERNAL-IP", "OS-IMAGE", "KERNEL-VERSION", "CONTAINER-RUNTIME"],
+      ["homelab-01", "Ready", "control-plane,worker", "1337d", "v1.34.2", "10.0.100.11", "<none>", "Human 1.0 (austrian edition)", "6.6.6-human", "containerd://2.1.4"]]));
+    if (verb === "get" && isNodes && /^(yaml|json)$/.test(output)) {
+      const node = { apiVersion: "v1", kind: "Node",
+        metadata: { name: "homelab-01", labels: { "kubernetes.io/hostname": "homelab-01", "node-role.kubernetes.io/control-plane": "" } },
+        status: { capacity: { cpu: "10", memory: "63Gi", coffee: "2" },
+          nodeInfo: { kubeletVersion: "v1.34.2", osImage: "Human 1.0 (austrian edition)", kernelVersion: "6.6.6-human", containerRuntimeVersion: "containerd://2.1.4" } } };
+      const doc = name ? node : { apiVersion: "v1", kind: "List", items: [node] };
+      return print(output === "json" ? esc(JSON.stringify(doc, null, 2)) : esc(toYaml(doc).replace(/: $/gm, ': ""')));
+    }
+    if (verb === "get" && isNodes) return print(NODES);
+    if (verb === "describe" && /^(deploy|deployments?)$/.test(kind || "")) {
+      const r = (K_DEPLOY[ns] || []).find(d => d[0] === name);
+      if (!r) return print(`<span class="w">Error from server (NotFound):</span> deployments.apps "${esc(name || "")}" not found`);
+      const ok = r[3] === "1";
+      return print(`Name:               ${r[0]}
+Namespace:          ${ns}
+Selector:           app.kubernetes.io/name=${r[0]}
+Replicas:           1 desired | 1 updated | 1 total | ${r[3]} available | ${ok ? 0 : 1} unavailable
+StrategyType:       RollingUpdate
+Pod Template:
+  Containers:
+   ${r[0]}:
+    Image:          ${r[0]}:latest
+Conditions:
+  <span class="m">Type       Status  Reason</span>
+  Available  ${ok ? `<span class="ok">True</span>    MinimumReplicasAvailable` : `<span class="w">False</span>   MinimumReplicasUnavailable`}
+Events:             &lt;none&gt;`);
+    }
+    if (verb === "describe" && /^(svc|services?)$/.test(kind || "")) {
+      const r = (K_SVC[ns] || []).find(d => d[0] === name);
+      if (!r) return print(`<span class="w">Error from server (NotFound):</span> services "${esc(name || "")}" not found`);
+      const down = (K_DEPLOY[ns] || []).some(d => d[0] === name && d[3] === "0");
+      return print(`Name:              ${r[0]}
+Namespace:         ${ns}
+Selector:          app.kubernetes.io/name=${r[0]}
+Type:              ${r[1]}
+IP:                ${r[2]}
+Port:              http  ${r[4]}
+Endpoints:         ${down ? "&lt;none&gt;" : r[2] === "None" ? "10.244.1.42:8080" : "10.244.2.17:" + r[4].split("/")[0]}
+Session Affinity:  None
+Events:            &lt;none&gt;`);
+    }
+    if (verb === "describe" && /^(ns|namespaces?)$/.test(kind || "")) {
+      if (!K_NAMESPACES.includes(name || "")) return print(`<span class="w">Error from server (NotFound):</span> namespaces "${esc(name || "")}" not found`);
+      if (name === "kube-system") return print(`<span class="w">Error from server (Forbidden):</span> told you not to look.`);
+      const quota = name === "life" ? `Resource Quotas
+  Name:    daily
+  <span class="m">Resource  Used  Hard</span>
+  coffee    2     unlimited
+  sleep     5h    8h` : "No resource quota.";
+      return print(`Name:         ${name}
+Labels:       kubernetes.io/metadata.name=${name}
+Annotations:  &lt;none&gt;
+Status:       Active
+
+${quota}
+
+No LimitRange resource.`);
+    }
+    if (verb === "describe" && isNodes) return print(NODE_DESCRIBE);
+    if (verb === "describe" && (isHuman || !kind)) return print(DESCRIBE());
+    if (verb === "describe" && isPods) {
+      const c = name ? podRows(ns).find(r => r[0] === name || r[0].startsWith(name)) : podRows(ns)[0];
+      if (!c) return print(`<span class="w">Error from server (NotFound):</span> pods "${esc(name || "")}" not found`);
+      const app = podApp(c[0]), st = c[2], pending = st === "Pending";
+      const stc = st === "Running" ? `<span class="ok">Running</span>` : `<span class="w">${esc(st)}</span>`;
+      return print(`Name:             ${c[0]}
+Namespace:        ${ns}
+Node:             ${pending ? "&lt;none&gt;" : "homelab-01/10.0.100.11"}
+Start Time:       ${c[4]}
+Labels:           app.kubernetes.io/name=${app}
+Status:           ${stc}
+IP:               ${pending ? "&lt;none&gt;" : podIP(c[0], st)}
+Containers:
+  ${app}:
+    Image:          ${app}:latest
+    Restart Count:  ${c[3]}
+Events:           ${st === "Running" ? "&lt;none&gt;" : `<span class="w">Warning  BackOff</span>  restarting failed container`}`);
+    }
+    if (verb === "describe") return print(`<span class="w">error:</span> the server doesn't have a resource type "${esc(kind)}"`);
+    if (verb === "top" && isNodes) return print(TOP_NODE);
+    if (verb === "top" && isPods) {
+      const usage = {
+        austria: [["my-place-0", "5m", "32Mi"]],
+        "flux-system": [["coffee-controller-418c0ffee-b3an5", "418m", "64Mi"], ["helm-controller-5b7d8c9f6-h3j7w", "12m", "96Mi"],
+          ["kustomize-controller-7d9c6b8f4-q8m2n", "15m", "88Mi"], ["sleep-controller-8h0m0s-zzz42", "0m", "0Mi"],
+          ["source-controller-6c8f9d7b5-x2k4p", "10m", "72Mi"]],
+      };
+      if (ns === "kube-system") return print(`<span class="w">Error from server (Forbidden):</span> told you not to look.`);
+      if (ns === "life") return print(TOP_PODS);
+      if (usage[ns]) return print(table([["NAME", "CPU(cores)", "MEMORY(bytes)"], ...usage[ns]]));
+      if (ns === "*") return print(TOP_PODS + "\n\n" + table([["NAMESPACE", "NAME", "CPU(cores)", "MEMORY(bytes)"],
+        ...Object.entries(usage).flatMap(([n, rows]) => rows.map(r => [n, ...r]))]));
+      return print(`error: metrics not available yet <span class="m">(no pods in namespace ${esc(ns)})</span>`);
+    }
+    if (verb === "top") return print(`error: must specify one of the following resource types: node, pod\nSee 'kubectl top -h' for help and examples`);
+    if (verb === "logs") {
+      if (!kind) return print(`error: expected 'logs POD'. try <span class="a">kubectl logs coffee</span>`);
+      // deploy/x and sts/x pick that workload's pod; pod/x is just the pod.
+      const wl = kind.match(/^(deploy|deployments?|sts|statefulsets?)\/(.+)$/);
+      const q = kind.replace(/^(po|pods?)\//, "");
+      const pod = wl ? Object.keys(LOGS).find(p => podApp(p) === wl[2])
+        : Object.keys(LOGS).find(p => p === q || p.startsWith(q));
+      if (!pod) return print(wl ? `<span class="w">error:</span> ${esc(wl[1].startsWith("s") ? "statefulsets.apps" : "deployments.apps")} "${esc(wl[2])}" not found`
+        : `<span class="w">Error from server (NotFound):</span> pods "${esc(q)}" not found`);
+      const tailArg = args.find(a => a.startsWith("--tail"));
+      const tail = tailArg ? +(tailArg.includes("=") ? tailArg.split("=")[1] : args[args.indexOf(tailArg) + 1]) : 0;
+      const lines = LOGS[pod].split("\n");
+      return print((tail > 0 ? lines.slice(-tail) : lines).join("\n"));
+    }
+    if (verb === "delete" && isPods) {
+      if (ns === "austria") return print(`<span class="w">Error from server (Forbidden):</span> pods in namespace "austria" cannot be deleted\n<span class="m">this namespace is home.</span>`);
+      if (ns === "flux-system") return print(denyWebhook(name ? `Pod "${esc(name)}"` : "pods in flux-system"));
+      if (name) {   // a single named pod: delete just that one, like real kubectl
+        const hit = podRows(ns).map(c => c[0]).find(x => x === name || x.startsWith(name));
+        if (!hit) return print(`<span class="w">Error from server (NotFound):</span> pods "${esc(name)}" not found`);
+        const nh = Math.random().toString(36).slice(2, 7), app = podApp(hit);
+        if (app === "homelab") return sequence([
+          () => print(`pod "${esc(hit)}" deleted`),
+          () => { degrade("degraded"); wordmark.classList.add("down"); setWordmark("503", ""); },
+          () => print(`<span class="w">warning: that one was serving this page.</span>`),
+          () => print(`<span class="a">flux</span>: drift detected in ${ns}, reconciling`),
+          () => recover(),
+          () => print(`pod/${app}-${nh} created`),
+        ], 520);
+        return sequence([
+          () => print(`pod "${esc(hit)}" deleted`),
+          () => print(`<span class="a">flux</span>: drift detected in ${ns}, reconciling`),
+          () => print(`pod/${app}-${nh} created`),
+        ], 480);
+      }
+      return chaosMode(true);   // delete pods --all / no name: the whole spectacle
+    }
+    if (verb === "delete" && /^(ns|namespaces?)$/.test(kind || "")) {
+      if (!name) return print(`error: resource(s) were provided, but no name was specified`);
+      if (name === "austria") return print(`<span class="w">Error from server (Forbidden):</span> namespace "austria" cannot be deleted\n<span class="m">it's been running since 1156.</span>`);
+      if (name === "life") return print(`namespace "life" deleted\n<span class="m">stuck in Terminating — finalizer coffee.klaus.onl/required won't let go.</span>`);
+      if (name === "flux-system") return print(`<span class="w">Error from server (Forbidden):</span> namespace "flux-system" cannot be deleted\n<span class="m">you can't delete flux with kubectl. flux deletes you.</span>`);
+      if (name === "kube-system") return print(`<span class="w">Error from server (Forbidden):</span> told you not to look.`);
+      return print(`<span class="w">Error from server (NotFound):</span> namespaces "${esc(name)}" not found`);
+    }
+    if (verb === "delete" && isNodes) return print(`<span class="w">Error from server (Forbidden):</span> nodes "homelab-01" cannot be deleted\n<span class="m">it's the only node. who'd run the deletion?</span>`);
+    if (verb === "delete" && isSecrets) return print(`secret "${esc(name || "everything")}" deleted\n<span class="m">flux restored it 10s later. it's in git.</span>`);
+    if (verb === "delete" && /^(crds?|customresourcedefinitions?)$/.test(kind || "")) return print(`<span class="w">Error from server (Forbidden):</span> customresourcedefinition "${esc(name || "humans.klaus.onl")}" cannot be deleted\n<span class="m">it's in use by 1 human.</span>`);
+    if (verb === "delete" && fluxKind) {
+      const fl = /^(ks|kustomization)/.test(kind) ? "Kustomization" : /^(hr|helm)/.test(kind) ? "HelmRelease" : "GitRepository";
+      return print(denyWebhook(name ? `${fl} "${esc(name)}"` : `${fl}s`));
+    }
+    const delNs = { deployment: ["deployment.apps", K_DEPLOY], deployments: ["deployment.apps", K_DEPLOY], deploy: ["deployment.apps", K_DEPLOY],
+      statefulset: ["statefulset.apps", K_STS], statefulsets: ["statefulset.apps", K_STS], sts: ["statefulset.apps", K_STS],
+      service: ["service", K_SVC], services: ["service", K_SVC], svc: ["service", K_SVC],
+      configmap: ["configmap", K_CM], configmaps: ["configmap", K_CM], cm: ["configmap", K_CM] }[kind || ""];
+    if (verb === "delete" && delNs) {
+      const [full, data] = delNs, Kind = KIND_LABEL[kind] || full;
+      if (ns === "flux-system") return print(denyWebhook(name ? `${Kind} "${esc(name)}"` : `${kind} in flux-system`));
+      if (ns === "kube-system") return print(`<span class="w">Error from server (Forbidden):</span> told you not to look.`);
+      if (ns !== "life" && ns !== "austria") return print(`No resources found in ${esc(ns)} namespace.`);
+      if (!name) return print(`error: resource(s) were provided, but no name was specified`);
+      if (!(data[ns] || []).some(r => r[0] === name)) return print(`<span class="w">Error from server (NotFound):</span> ${full} "${esc(name)}" not found`);
+      if (full === "deployment.apps" && name === "homelab") return sequence([
+        () => print(`${full} "${esc(name)}" deleted`),
+        () => { degrade("degraded"); wordmark.classList.add("down"); setWordmark("503", ""); },
+        () => print(`<span class="w">warning: that one was serving this page.</span>`),
+        () => print(`<span class="a">flux</span>: drift detected in ${ns}, reconciling`),
+        () => print(`<span class="a">flux</span>: applied revision ${REV}`),
+        () => recover(),
+        () => print(`${full}/${esc(name)} created`),
+      ], 520);
+      return sequence([
+        () => print(`${full} "${esc(name)}" deleted`),
+        () => print(`<span class="a">flux</span>: drift detected in ${ns}, reconciling`),
+        () => print(`${full}/${esc(name)} created`),
+      ], 480);
+    }
+    if (verb === "delete" && /^(ev|events?)$/.test(kind || "")) {
+      if (ns === "flux-system") return print(denyWebhook("events in flux-system"));
+      return print(name ? `event "${esc(name)}" deleted` : `events deleted\n<span class="m">they'll be back. things keep happening.</span>`);
+    }
+    if (verb === "delete" && (isHuman || !kind)) return print(`<span class="w">Error from server (Forbidden):</span> human "bernd" cannot be deleted\n<span class="m">protected by a PodDisruptionBudget.</span>`);
+    if (verb === "delete") return print(`<span class="w">error:</span> the server doesn't have a resource type "${esc(kind)}"`);
+    if (verb === "debug") return kdebug(pos, args);
+    if (verb === "drain") return drain((isNodes ? name : kind) || "homelab-01");
+    if ((verb === "get" && /^(ev|events?)$/.test(kind || "")) || verb === "events") return print(events(ns));
+    if (verb === "exec") return print(kexec(kind));
+    if (verb === "rollout") return rollout(kind, /^(deploy|deployments?|sts|statefulsets?)$/.test(name || "") ? pos[3] : name, ns);
+    if (verb === "auth" && kind === "can-i") return print(canI(name, pos[3]));
+    if (verb === "edit") return print(`opening vim...\n<span class="m">aborted for your own safety — flux would revert it anyway. commit it to git.</span>`);
+    if (/^(apply|create|patch|replace)$/.test(verb)) {
+      // kubectl checks the file before contacting the server
+      let file = null;
+      for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (a === "-f" || a === "--filename") file = args[i + 1] || "";
+        else if (a.startsWith("--filename=")) file = a.slice(11);
+        else if (a.startsWith("-f=")) file = a.slice(3);
+      }
+      if (file !== null) return print(`error: the path "${esc(file)}" does not exist`);
+      if (verb === "apply" || verb === "replace") return print(`error: must specify one of -f and -k`);
+      if (!kind) return print(`error: you must specify the type of resource to ${verb}. Use "kubectl api-resources" for a complete list.`);
+      // create/patch a named resource: a GitOps admission webhook denies manual changes
+      const Kind = KIND_LABEL[kind] || (kind[0].toUpperCase() + kind.slice(1));
+      return print(denyWebhook(name ? `${Kind} "${esc(name)}"` : Kind));
+    }
+    if (verb === "cordon") return print(`node/homelab-01 cordoned\nnode/homelab-01 uncordoned\n<span class="m">nothing new gets scheduled anyway. like a normal weekend.</span>`);
+    if (verb === "uncordon") return print(`node/homelab-01 already uncordoned`);
+    print(`error: you're not cluster-admin here. try <span class="a">help</span>`);
+  }
+
+  /* ---------- easter eggs ---------- */
+
+  // `sl`, for everyone who mistypes ls.
+  function sl() {
+    out.insertAdjacentHTML("beforeend", `<span class="train"><span>${esc(TRAIN)}</span></span>`);
+    body.scrollTop = body.scrollHeight;
+    const train = out.lastElementChild;
+    if (reduced) return print(`<span class="m">you meant ls, right?</span>`);
+    train.firstElementChild.addEventListener("animationend", () => { train.remove(); print(`<span class="m">you meant ls, right?</span>`); }, { once: true });
+  }
+
+  // Delete all pods, then flux heals everything.
+  function chaosMode(typed = false) {
+    const pods = ["coffee-7f9c4d", "homelab-5b8d2e", "curiosity-0", "side-project-x9k2", "sleep-6d4f8a"];
+    sequence([
+      () => { if (!typed) echo("kubectl delete pods --all -n life --force"); },
+      () => degrade("degraded"),
+      ...pods.map(p => () => print(`pod "${p}" <span class="w">force deleted</span>`)),
+      () => print(`<span class="m">...</span>`),
+      () => print(`<span class="a">flux</span>: drift detected in namespace life, reconciling from git`),
+      () => print(`<span class="a">flux</span>: applied revision main@sha1:c0ffee42`),
+      recover,
+      () => print(PODS.replace(/0\/1     <span class="w">CrashLoopBackOff<\/span>   17           too long/,
+                               `1/1     <span class="ok">Running</span>            0            (for once)`)
+                      .replace(/0\/1     <span class="w">Pending<\/span>/, `1/1     <span class="ok">Running</span>`)),
+      () => print(`\n<span class="ok">★ achievement unlocked: chaos engineer</span>\n<span class="m">you can't kill what lives in git.</span>`),
+    ]);
+  }
+
+  // Drain the only node. The page goes down with it.
+  function drain(node) {
+    if (node !== "homelab-01") return print(`<span class="w">Error from server (NotFound):</span> nodes "${esc(node)}" not found. there's only homelab-01.`);
+    sequence([
+      () => print(`node/homelab-01 cordoned`),
+      () => print(`evicting pod life/sleep-6d4f8a`),
+      () => print(`pod/sleep-6d4f8a evicted <span class="m">(it was barely running anyway)</span>`),
+      () => print(`evicting pod life/coffee-7f9c4d`),
+      () => print(`<span class="w">error when evicting pod "coffee-7f9c4d": would violate PodDisruptionBudget "morning-routine"</span>`),
+      () => print(`evicting pod life/homelab-5b8d2e`),
+      () => print(`pod/homelab-5b8d2e evicted`),
+      () => { degrade("unavailable"); wordmark.classList.add("down"); setWordmark("503", ""); },
+      () => print(`<span class="w">warning: that pod was serving this page.</span>`),
+      () => {},
+      () => print(`<span class="m">scheduler: 0/1 nodes are available: 1 node(s) were unschedulable.</span>`),
+      () => print(`<span class="m">where exactly did you expect them to go? it's a single-node cluster.</span>`),
+      () => {},
+      () => print(`node/homelab-01 uncordoned`),
+      recover,
+      () => print(`<span class="ok">all pods rescheduled on homelab-01. the same node. obviously.</span>`),
+    ], 520);
+  }
+
+  // :(){ :|:& };:
+  function forkBomb() {
+    const lines = [1, 2, 4, 8, 16, 32, 64, 64, 64].map(n => () => print(`<span class="w">${":".repeat(n)}</span>`));
+    sequence([
+      () => degrade("load 9001"),
+      ...lines,
+      () => print(`bash: fork: retry: Resource temporarily unavailable`),
+      () => print(`bash: fork: retry: Resource temporarily unavailable`),
+      () => print(`bash: fork: retry: Resource temporarily unavailable`),
+      () => print(`[ 4242.000001] Out of memory: Killed process 31337 (:) total-vm:∞kB`),
+      recover,
+      () => print(`<span class="m">pod life/bash OOMKilled. resource quota exceeded.</span>\n<span class="ok">this cluster has seen this before.</span>`),
+    ], 140);
+  }
+
+  // The `bernd` binary, as documented in man bernd.
+  function bernd(args) {
+    if (!args.length) return print(`bernd: missing --coffee. behaviour is undefined.\n<span class="m">see</span> <span class="a">man bernd</span>`);
+    const steps = [];
+    for (const a of args) {
+      if (a === "--coffee") steps.push(
+        () => print(`grinding beans...`),
+        () => print(`extracting [<span class="ok">##########</span>] 25s, 36g`),
+        () => print(`<span class="ok">bernd: operational.</span> productivity +40%`));
+      else if (a === "--homelab") steps.push(() => print(`--homelab is already enabled. it's the default.`));
+      else if (a === "--no-homelab") steps.push(() => print(`<span class="w">error:</span> --homelab cannot be disabled.`));
+      else if (a === "-v" || a === "--verbose-k8s") steps.push(
+        () => print(`so basically, everything is declarative.`),
+        () => print(`you push to git, flux notices, the cluster converges.`),
+        () => print(`no kubectl apply. ever. well, almost never.`),
+        () => print(`drift? reconciled. manual change? reconciled. you? also reconciled, eventually.`),
+        () => print(`and the best part: if the cluster burns down, you just point flux at the repo and`),
+        () => print(`<span class="m">[bernd was interrupted. this happens a lot.]</span>`));
+      else if (a === "--help" || a === "-h") steps.push(() => print(`usage: bernd [--coffee] [--homelab] [-v | --verbose-k8s] [--easteregg]\n<span class="m">the full story:</span> <span class="a">man bernd</span>`));
+      else if (a === "--version" || a === "-V") steps.push(() => print(`bernd 1.0 (austrian edition)\nbuilt with coffee, tested in the homelab.`));
+      else if (a === "--easteregg") steps.push(() => print(`wanna get root? it's not impossible.\n<span class="m">through the api, though? that's the rough road...</span>`));
+      else steps.push(() => print(`bernd: unrecognized option '${esc(a)}'\n<span class="m">see</span> <span class="a">man bernd</span>`));
+    }
+    sequence(steps, 650);
+  }
+
+  // reboot: shutdown broadcast, boot log, auto-login.
+  function reboot() {
+    const ok = t => () => print(`[  <span class="ok">OK</span>  ] ${t}`);
+    const k = (ts, t) => () => print(`<span class="m">[${ts}]</span> ${t}`);
+    sequence([
+      () => print(`\nBroadcast message from ${USER}@${host}:\n<span class="w">The system is going down for reboot NOW!</span>`),
+      () => { degrade("rebooting"); wordmark.classList.add("booting"); },
+      () => { out.textContent = ""; setCwd(isRoot ? "/root" : "~"); wordmark.classList.remove("glitch"); },
+      k("    0.000000", "Linux version 6.6.6-human (built with coffee)"),
+      k("    0.004200", "Command line: BOOT_IMAGE=/bernd quiet splash coffee=required"),
+      k("    0.133700", "Memory: 63Gi available (94% reserved for browser tabs)"),
+      k("    1.000000", "systemd[1]: Starting homelab..."),
+      ok("Started coffee.service."),
+      ok("Reached target network-online.target. <span class=\"m\">(not DNS this time)</span>"),
+      ok("Started kubelet.service."),
+      ok("Started flux reconciliation."),
+      () => print(`[<span class="w">FAILED</span>] Failed to start sleep.service. See '<span class="a">kubectl logs sleep</span>'.`),
+      ok("Reached target multi-user.target."),
+      () => { wordmark.classList.remove("booting"); recover(); if (isRoot) statusText.textContent = "root"; },
+      () => print(`\n${host} login: ${whoNow()} <span class="m">(automatic)</span>\nLast login: ${SIMPLE.date()} from your browser\n<span class="ok">Servus, welcome back.</span>`),
+    ], 300);
+  }
+
+  /* ---------- flux ---------- */
+
+  const REV = "main@sha1:c0ffee42";
+  const KS = {
+    homelab:         { rev: REV, suspended: false, ready: true,  msg: `Applied revision: ${REV}` },
+    life:            { rev: REV, suspended: false, ready: true,  msg: `Applied revision: ${REV}` },
+    austria:         { rev: REV, suspended: false, ready: true,  msg: `Applied revision: ${REV}` },
+    coffee:          { rev: REV, suspended: false, ready: true,  msg: `Applied revision: ${REV}` },
+    sleep:           { rev: REV, suspended: false, ready: false, msg: "health check failed: CrashLoopBackOff" },
+    "side-projects": { rev: "main@sha1:deadbeef", suspended: true, ready: false, msg: "suspended 3 months ago" },
+  };
+  const HR = {
+    "coffee-machine": { rev: "2.0.0",   suspended: false, ready: true,  msg: "Helm upgrade succeeded" },
+    "browser-tabs":   { rev: "147.0.0", suspended: false, ready: true,  msg: "Helm upgrade succeeded. opened another one." },
+    motivation:       { rev: "0.0.1",   suspended: true,  ready: false, msg: "suspended" },
+  };
+  const GIT = { "homelab-gitops": { rev: REV, suspended: false, ready: true, msg: `stored artifact for revision '${REV}'` } };
+
+  const fOk = t => `<span class="ok">✔</span> ${t}`;
+  const fStep = t => `<span class="a">►</span> ${t}`;
+  const fWait = t => `<span class="m">◎</span> ${t}`;
+  const fFail = t => `<span class="w">✗</span> ${t}`;
+  const fluxTable = (items, prefix = "") => table([["NAME", "REVISION", "SUSPENDED", "READY", "MESSAGE"],
+    ...Object.entries(items).map(([n, r]) => [prefix + n, r.rev, r.suspended ? "True" : "False", r.ready ? "True" : "False", r.msg])]);
+
+  const FLUX_HELP = `Command line utility for assembling Kubernetes CD pipelines the GitOps way.
+
+Usage:
+  flux [command]
+
+Available Commands:
+  <span class="a">check</span>       check requirements and installation
+  <span class="a">get</span>         get the status of Flux resources
+  <span class="a">reconcile</span>   reconcile sources and resources
+  <span class="a">suspend</span>     suspend resources
+  <span class="a">resume</span>      resume suspended resources
+  <span class="a">tree</span>        print the resources reconciled by a kustomization
+  <span class="a">logs</span>        display formatted logs for Flux components
+  <span class="a">version</span>     print the client and server-side Flux version information`;
+
+  const FLUX_CHECK = [
+    fStep("checking prerequisites"),
+    fOk("Kubernetes 1.34.2 >=1.32.0-0"),
+    fStep("checking version in cluster"),
+    fOk("distribution: flux-v2.7.2"),
+    fStep("checking controllers"),
+    fOk("source-controller: deployment ready"),
+    fOk("kustomize-controller: deployment ready"),
+    fOk("helm-controller: deployment ready"),
+    fOk("coffee-controller: deployment ready"),
+    fFail(`sleep-controller: deployment not ready <span class="m">(see kubectl logs sleep)</span>`),
+    fStep("checking crds"),
+    fOk("humans.klaus.onl/v1"),
+    fOk("all checks passed <span class=\"m\">(well, almost)</span>"),
+  ];
+
+  const FLUX_VERSION = `flux: v2.7.2
+distribution: flux-v2.7.2
+helm-controller: v1.4.2
+kustomize-controller: v1.7.1
+source-controller: v1.7.2
+coffee-controller: v418.0.0`;
+
+  const FLUX_TREE = `Kustomization/flux-system/homelab
+├── GitRepository/flux-system/homelab-gitops
+├── Kustomization/flux-system/life
+│   ├── Deployment/life/coffee
+│   ├── Deployment/life/homelab
+│   ├── StatefulSet/life/curiosity
+│   ├── Deployment/life/side-project
+│   └── Deployment/life/sleep
+└── HelmRelease/flux-system/browser-tabs`;
+
+  const fluxLogs = () => {
+    const d = new Date().toISOString().slice(0, 10);
+    return [
+      `${d}T06:30:00.000Z <span class="ok">info</span>  GitRepository/homelab-gitops.flux-system - stored artifact for commit 'fix: it was DNS'`,
+      `${d}T06:30:02.000Z <span class="ok">info</span>  Kustomization/coffee.flux-system - server-side apply completed`,
+      `${d}T06:31:00.000Z <span class="ok">info</span>  HelmRelease/browser-tabs.flux-system - upgrade succeeded (tab 148)`,
+      `${d}T09:12:44.000Z <span class="w">error</span> Kustomization/sleep.flux-system - health check failed: CrashLoopBackOff`,
+    ].join("\n");
+  };
+
+  function flux(args) {
+    const pos = args.filter(a => !a.startsWith("-"));
+    const withSource = args.includes("--with-source");
+    const [verb, kindArg, ...rest] = pos;
+    const kindOf = k => /^(ks|kustomizations?)$/.test(k || "") ? "ks"
+      : /^(hr|helmreleases?)$/.test(k || "") ? "hr"
+      : /^(sources?)$/.test(k || "") ? "source" : k;
+    const kind = kindOf(kindArg);
+
+    if (!verb || verb === "help" || args.includes("--help")) return print(FLUX_HELP);
+    if (verb === "version") return print(FLUX_VERSION);
+    if (verb === "check") return sequence(FLUX_CHECK.map(l => () => print(l)), 220);
+    if (verb === "logs") return print(fluxLogs());
+    if (verb === "tree") return print(kind === "ks" && (!rest[0] || rest[0] === "homelab") ? FLUX_TREE
+      : fFail(`try <span class="a">flux tree ks homelab</span>`));
+    if (verb === "bootstrap") return print(fStep("already bootstrapped. since day one.") + "\n" + fOk("nothing to do"));
+    if (verb === "uninstall") return print(fFail("nope. flux uninstalls you first."));
+
+    if (verb === "get") {
+      if (kind === "ks") return print(fluxTable(KS));
+      if (kind === "hr") return print(fluxTable(HR));
+      if (kind === "source") return print(fluxTable(GIT));
+      if (kind === "all") return print([fluxTable(GIT, "gitrepository/"), fluxTable(KS, "kustomization/"), fluxTable(HR, "helmrelease/")].join("\n\n"));
+      return print(fFail(`unknown kind. try <span class="a">flux get kustomizations</span>, <span class="a">helmreleases</span>, <span class="a">sources git</span> or <span class="a">all</span>`));
+    }
+
+    const name = kind === "source" ? rest[1] : rest[0];
+    const items = kind === "ks" ? KS : kind === "hr" ? HR : kind === "source" ? GIT : null;
+    const label = kind === "ks" ? "Kustomization" : kind === "hr" ? "HelmRelease" : "GitRepository";
+    if (["reconcile", "suspend", "resume"].includes(verb)) {
+      if (!items) return print(fFail(`usage: flux ${verb} ks|hr &lt;name&gt;`));
+      if (!name) return print(fFail(`${label} name is required`));
+      if (!items[name]) return print(fFail(`${label} "${esc(name)}" not found in flux-system namespace`));
+    }
+    const res = items && items[name];
+
+    if (verb === "reconcile") {
+      if (res.suspended) return print(fFail(`resource is suspended. run '<span class="a">flux resume ${kind} ${esc(name)}</span>' first`));
+      const steps = [];
+      if (withSource || kind === "source") steps.push(
+        () => print(fStep("annotating GitRepository homelab-gitops in flux-system namespace")),
+        () => print(fOk("GitRepository annotated")),
+        () => print(fWait("waiting for GitRepository reconciliation")),
+        () => print(fOk(`fetched revision ${REV}`)));
+      if (kind !== "source") steps.push(
+        () => print(fStep(`annotating ${label} ${esc(name)} in flux-system namespace`)),
+        () => print(fOk(`${label} annotated`)),
+        () => print(fWait(`waiting for ${label} reconciliation`)),
+        name === "sleep"
+          ? () => print(fFail(`health check failed after 8h0m0s: timeout waiting for: [Deployment/life/sleep status: 'Failed']`))
+          : () => print(fOk(kind === "hr" ? `applied revision ${res.rev}` : `applied revision ${REV}`)));
+      return sequence(steps, 420);
+    }
+
+    if (verb === "suspend") {
+      if (name === "homelab") return print(fFail(`the homelab cannot be suspended. see <span class="a">man bernd</span>.`));
+      if (name === "coffee" || name === "coffee-machine") return print(fFail(`suspending ${name} would violate PodDisruptionBudget "morning-routine"`));
+      if (name === "austria") return print(fFail(`austria cannot be suspended. it's been running since 1156.`));
+      if (res.suspended) return print(fOk(`${esc(name)} is already suspended. it's comfortable there.`));
+      return sequence([
+        () => print(fStep(`suspending ${label.toLowerCase()} ${esc(name)} in flux-system namespace`)),
+        () => print(fOk(`${label.toLowerCase()} suspended`) + (name === "sleep" ? `\n<span class="m">finally, some honesty.</span>` : "")),
+      ], 380);
+    }
+
+    if (verb === "resume") {
+      if (!res.suspended) return print(fOk(`${esc(name)} is not suspended. it's running. it's always running.`));
+      const reason = name === "side-projects" ? "insufficient time. 0/1 weekends available."
+        : "values.yaml: key 'motivation' not found.";
+      return sequence([
+        () => print(fStep(`resuming ${label.toLowerCase()} ${esc(name)} in flux-system namespace`)),
+        () => print(fOk(`${label.toLowerCase()} resumed`)),
+        () => print(fWait(`waiting for ${label} reconciliation`)),
+        () => print(fFail(`reconciliation failed: ${reason}`)),
+        () => print(fStep(`suspending ${esc(name)} again. maybe next month.`)),
+      ], 450);
+    }
+
+    print(fFail(`unknown command "${esc(verb)}" for "flux". try <span class="a">flux --help</span>`));
+  }
+
+  /* ---------- helm ---------- */
+
+  // Helm's UPDATED column: "2026-10-23 06:30:00 +0200 CEST", in the viewer's timezone.
+  const helmTime = (daysAgo, hhmm) => {
+    const d = new Date(Date.now() - daysAgo * 864e5);
+    const off = -d.getTimezoneOffset();
+    const sign = off >= 0 ? "+" : "-";
+    const hh = String(Math.floor(Math.abs(off) / 60)).padStart(2, "0"), mm = String(Math.abs(off) % 60).padStart(2, "0");
+    const tz = new Intl.DateTimeFormat("en-GB", { timeZoneName: "short" }).formatToParts(d).find(x => x.type === "timeZoneName").value;
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return `${date} ${hhmm}:00 ${sign}${hh}${mm} ${tz}`;
+  };
+
+  const HELM_HELP = `The Kubernetes package manager
+
+Usage:
+  helm [command]
+
+Available Commands:
+  <span class="a">list</span>        list releases
+  <span class="a">install</span>     install a chart
+  <span class="a">rollback</span>    roll back a release to a previous revision`;
+
+  function helm(args) {
+    const pos = args.filter(a => !a.startsWith("-"));
+    const [verb, name, rev] = pos;
+    if (!verb || args.includes("--help")) return print(HELM_HELP);
+    if (verb === "list" || verb === "ls") return print(table([
+      ["NAME", "NAMESPACE", "REVISION", "UPDATED", "STATUS", "CHART", "APP VERSION"],
+      ["coffee-machine", "life", "2", helmTime(0, "06:30"), "deployed", "coffee-machine-2.0.0", "espresso"],
+      ["browser-tabs", "life", "147", helmTime(0, "09:41"), "deployed", "browser-tabs-147.0.0", "too many"],
+      ["motivation", "life", "1", helmTime(92, "23:58"), "failed", "motivation-0.0.1", "0.0.1"],
+    ]));
+    if (verb === "rollback") {
+      if (!name) return print(`Error: "helm rollback" requires at least 1 argument`);
+      if (name === "browser-tabs") return sequence([
+        () => print(`Rollback was a success! Happy Helming!`),
+        () => print(`<span class="m">rolled back to 146 tabs. reopened 1 tab automatically.</span>`),
+      ], 600);
+      if (name === "coffee-machine") return print(`<span class="w">Error:</span> cannot roll back to revision ${esc(rev || "1")}: decaf is not supported.`);
+      if (name === "motivation") return print(`<span class="w">Error:</span> no previous revision. there never was one.`);
+      if (name === "life") return print(`<span class="w">Error:</span> cannot roll back to revision ${esc(rev || "1")}. that's before coffee was invented.`);
+      return print(`<span class="w">Error:</span> release: not found`);
+    }
+    if (verb === "install") {
+      if (args.includes("--generate-name") || args.includes("-g")) {
+        if (!name) return print(`Error: "helm install" requires at least 1 argument`);
+        const chart = name.split("/").pop();
+        print(`NAME: ${esc(chart)}-${Math.floor(Date.now() / 1000)}`);
+        return print(chart === "motivation"
+          ? `<span class="w">Error: INSTALLATION FAILED:</span> chart requires free time &gt;= 2h, found 0.`
+          : `<span class="w">Error: INSTALLATION FAILED:</span> this cluster is managed by flux. write a HelmRelease, like a civilized person.`);
+      }
+      if (!name) return print(`Error: INSTALLATION FAILED: must either provide a name or specify --generate-name`);
+      if (name === "motivation") return print(`<span class="w">Error: INSTALLATION FAILED:</span> chart requires free time &gt;= 2h, found 0.`);
+      if (["coffee-machine", "browser-tabs"].includes(name)) return print(`<span class="w">Error: INSTALLATION FAILED:</span> cannot re-use a name that is still in use`);
+      return print(`<span class="w">Error: INSTALLATION FAILED:</span> this cluster is managed by flux. write a HelmRelease, like a civilized person.`);
+    }
+    print(`<span class="w">Error:</span> unknown command "${esc(verb)}" for "helm". try <span class="a">helm list</span>`);
+  }
+
+  /* ---------- unix ---------- */
+
+  const NEOFETCH_ART = [
+    "     _______     ",
+    "   /    |    \\   ",
+    "  | \\   |   / |  ",
+    "  |---- o ----|  ",
+    "  | /   |   \\ |  ",
+    "   \\____|____/   ",
+    "                 ",
+  ];
+  function neofetch() {
+    const s = Math.floor((Date.now() - started) / 1000);
+    const info = [
+      `<span class="a">${USER}</span>@<span class="a">${host}</span>`,
+      "-------------------",
+      `<span class="a">OS</span>: Human 1.0 (austrian edition)`,
+      `<span class="a">Host</span>: homelab-01`,
+      `<span class="a">Kernel</span>: 6.6.6-human`,
+      `<span class="a">Uptime</span>: ${Math.floor(s / 60)} mins (this page), forever (the homelab)`,
+      `<span class="a">Packages</span>: 2 (coffee), 147 (browser-tabs)`,
+      `<span class="a">Shell</span>: zsh 5.9 + kubectl`,
+      `<span class="a">DE</span>: flux`,
+      `<span class="a">WM</span>: k9s`,
+      `<span class="a">CPU</span>: brain @ 42% (4200m)`,
+      `<span class="a">Memory</span>: 61Gi / 63Gi (browser tabs)`,
+      "",
+      ["--fg", "--accent", "--ok", "--warn", "--muted", "--line"].map(v => `<span style="color: var(${v})">███</span>`).join(""),
+    ];
+    const rows = Math.max(NEOFETCH_ART.length, info.length);
+    const lines = [];
+    for (let i = 0; i < rows; i++) lines.push(`<span class="a">${esc(NEOFETCH_ART[i] || " ".repeat(17))}</span>  ${info[i] || ""}`);
+    return lines.join("\n");
+  }
+
+  function uname(args) {
+    const a = args.join(" ");
+    if (/-a|--all/.test(a)) return `Linux ${host} 6.6.6-human #1 SMP PREEMPT_DYNAMIC coffee-powered x86_64 GNU/Linux`;
+    if (/-r/.test(a)) return "6.6.6-human";
+    if (/-n/.test(a)) return host;
+    return "Linux";
+  }
+
+  const GIT_LOG = [
+    ["c0ffee42", "0 hours", "fix: it was DNS"],
+    ["5ca1ab1e", "2 hours", "chore(browser-tabs): bump to 147"],
+    ["8badf00d", "3 days", 'revert "revert "fix: it was DNS""'],
+    ["deadbeef", "3 months", "feat: start side project"],
+    ["0000001a", "1337 days", "initial commit: servus homelab"],
+  ];
+  function git(args) {
+    const [sub, ...rest] = args;
+    if (!sub) return `usage: git [--version] [--help] &lt;command&gt; [&lt;args&gt;]\n<span class="m">try</span> <span class="a">git log</span>, <span class="a">git status</span>`;
+    if (sub === "log") {
+      if (rest.includes("--oneline")) return GIT_LOG.map(([h, , m], i) => `<span class="w">${h}</span>${i === 0 ? ` (<span class="a">HEAD -&gt; main</span>, origin/main)` : ""} ${esc(m)}`).join("\n");
+      return GIT_LOG.map(([h, ago, m], i) => `<span class="w">commit ${h}</span>${i === 0 ? ` (<span class="a">HEAD -&gt; main</span>, origin/main)` : ""}
+Author: ${USER} &lt;${USER}@users.noreply.github.com&gt;
+Date:   ${ago} ago
+
+    ${esc(m)}`).join("\n\n");
+    }
+    if (sub === "status") return `On branch main
+Your branch is up to date with 'origin/main'.
+
+Untracked files:
+  <span class="w">side-projects/</span>   <span class="m">(since 3 months)</span>
+
+nothing added to commit but untracked files present. as usual.`;
+    if (sub === "push") {
+      if (rest.some(a => /^(-f|--force|--force-with-lease)$/.test(a))) {
+        const friday = new Date().getDay() === 5;
+        return ` <span class="w">! [remote rejected]</span> main -&gt; main (protected branch hook declined)
+error: failed to push some refs to 'github.com:Berndinox/homelab.git'
+<span class="m">force pushing to main${friday ? " on a friday" : ""}? no.</span>`;
+      }
+      return "Everything up-to-date";
+    }
+    if (sub === "pull") return "Already up to date.";
+    if (sub === "commit") return "On branch main\nnothing to commit, working tree clean";
+    if (sub === "blame") return `<span class="w">c0ffee42</span> (${USER}  0 hours ago)   1) apiVersion: v1
+<span class="w">c0ffee42</span> (${USER}  0 hours ago)   2) kind: Human
+<span class="w">5ca1ab1e</span> (flux-bot   2 hours ago)   3) # touched by a robot
+<span class="w">deadbeef</span> (${USER}  3 months ago)  4) # TODO: finish this`;
+    return `git: '${esc(sub)}' is not a git command. See 'git --help'.`;
+  }
+
+  function curl(args) {
+    const url = (args.find(a => !a.startsWith("-")) || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    const headers = args.some(a => /^(-I|--head|-i)$/.test(a));
+    if (!url) return `curl: try 'curl --help' for more information`;
+    if (url === host || url === `www.${host}` || url === "localhost" || url === "127.0.0.1") {
+      if (headers) return `HTTP/2 200
+server: homelab-01
+content-type: text/html; charset=utf-8
+x-powered-by: coffee
+x-reconciled-by: flux
+x-servus: true`;
+      return `&lt;!doctype html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;&lt;title&gt;${host}&lt;/title&gt;...
+<span class="m">you're already looking at it.</span>`;
+    }
+    if (/^(www\.)?github\.com$/.test(url)) {
+      if (headers) return `HTTP/2 200
+server: github.com
+content-type: text/html; charset=utf-8
+strict-transport-security: max-age=31536000; includeSubdomains; preload
+
+<span class="m">reachable. flux is happy.</span>`;
+      return `&lt;!DOCTYPE html&gt;
+&lt;html lang="en" data-color-mode="auto"&gt;...
+<span class="m">it's github. the homelab's source of truth lives at</span> ${link("https://github.com/Berndinox", "github.com/Berndinox")}`;
+    }
+    if (/^(ifconfig\.me|icanhazip\.com|ipinfo\.io)$/.test(url)) return `127.0.0.1\n<span class="m">there's no place like home.</span>`;
+    return `curl: (6) Could not resolve host: ${esc(url)}\n<span class="m">it's always DNS.</span>`;
+  }
+
+  /* ---------- kubectl extras ---------- */
+
+  const EVENTS = {
+    life: [
+      ["2m", "Normal", "Pulled", "pod/coffee-7f9c4d", 'image "coffee:espresso" pulled'],
+      ["5m", "Warning", "BackOff", "pod/sleep-6d4f8a", "back-off restarting failed container (not enough sleep)"],
+      ["12m", "Normal", "Opened", "pod/curiosity-0", "opened tab 148"],
+      ["1h", "Normal", "Reconciled", "kustomization/homelab", "synced from git"],
+      ["3mo", "Warning", "FailedScheduling", "pod/side-project-x9k2", "0/1 weekends available: insufficient time"],
+    ],
+  };
+  function events(ns) {
+    const spaces = ns === "*" ? Object.keys(EVENTS) : [ns];
+    const rows = [];
+    for (const n of spaces) for (const e of EVENTS[n] || []) rows.push(ns === "*" ? [n, ...e] : e);
+    if (!rows.length) return `No events found in ${esc(ns)} namespace.`;
+    return table([[...(ns === "*" ? ["NAMESPACE"] : []), "LAST SEEN", "TYPE", "REASON", "OBJECT", "MESSAGE"], ...rows]);
+  }
+
+  function kexec(target) {
+    const q = (target || "").replace(/^(po|pod|pods)\//, "");
+    if (!q) return `error: pod, type/name or --filename must be specified`;
+    const pod = Object.keys(LOGS).find(p => p === q || p.startsWith(q));
+    if (!pod) return `<span class="w">Error from server (NotFound):</span> pods "${esc(q)}" not found`;
+    const base = pod.replace(/-[^-]+$/, "").replace(/-0$/, "");
+    return {
+      coffee: `OCI runtime exec failed: exec: "sh": executable file not found in $PATH\n<span class="m">coffee has no shell. it has beans.</span>`,
+      homelab: `<span class="w">Error from server (Forbidden):</span> exec into the homelab? only from inside the homelab.`,
+      curiosity: `curiosity-0:/$ <span class="m">opened 3 new tabs while you were typing.</span>\ncommand terminated with exit code 148`,
+      "side-project": `<span class="w">error:</span> pod ${pod} is Pending. there's nothing to exec into. that's the whole problem.`,
+      sleep: `<span class="w">error:</span> container "sleep" is in CrashLoopBackOff. let it rest.`,
+    }[base] || `<span class="w">error:</span> unable to exec into ${pod}`;
+  }
+
+  function rollout(sub, rawTarget, ns) {
+    let t = (rawTarget || "").replace(/^(deploy|deployments?|sts|statefulsets?)\//, "");
+    if (!sub) return print(`error: required subcommand: history, restart, status or undo`);
+    if (!t) return print(`error: required resource not specified`);
+    const known = ns === "austria" ? [] : ["coffee", "homelab", "curiosity", "side-project", "sleep"];
+    if (!known.includes(t)) return print(`<span class="w">Error from server (NotFound):</span> deployments.apps "${esc(t)}" not found`);
+    if (sub === "status") return print(t === "sleep" ? `<span class="w">error:</span> deployment "sleep" exceeded its progress deadline`
+      : t === "side-project" ? `Waiting for deployment "side-project" rollout to finish: 0 of 1 updated replicas are available... <span class="m">(3 months and counting)</span>`
+      : `deployment "${t}" successfully rolled out`);
+    if (sub === "history") {
+      const causes = {
+        coffee: ["initial brew", "switch to espresso", "decaf experiment", "rollback: decaf experiment"],
+        sleep: ["8h by default", "7h, temporarily", "6h, just this week", "\"one more reconcile\""],
+        "side-project": ["initial commit"],
+        homelab: ["it was DNS", "it was DNS again", "fix: it was DNS"],
+      }[t] || ["&lt;none&gt;"];
+      return print(`deployment.apps/${t}
+${table([["REVISION", "CHANGE-CAUSE"], ...causes.map((c, i) => [String(i + 1), c])])}`);
+    }
+    if (sub === "undo") return print(`deployment.apps/${t} rolled back\n<span class="m">to yesterday. still tired.</span>`);
+    if (sub !== "restart") return print(`error: unknown subcommand "${esc(sub)}"`);
+    sequence([
+      () => print(`deployment.apps/${t} restarted`),
+      bumpRestarts,
+      () => print(`Waiting for deployment "${t}" rollout to finish: 0 of 1 updated replicas are available...`),
+      () => print(t === "sleep" ? `<span class="w">error: deployment "sleep" exceeded its progress deadline</span>\n<span class="m">still CrashLoopBackOff.</span>`
+        : t === "side-project" ? `<span class="w">error: deployment "side-project" exceeded its progress deadline</span>\n<span class="m">restarting doesn't create free time.</span>`
+        : `deployment "${t}" successfully rolled out`),
+    ], 600);
+  }
+
+  function canI(verb, resource) {
+    const v = (verb || "").replace(/['"]/g, ""), r = (resource || "").replace(/['"]/g, "");
+    if (!v) return `error: you must specify two arguments: verb resource or a non-resource URL`;
+    if (v === "*" || r === "*") return `no\n<span class="m">but nice try.</span>`;
+    if (/^(get|list|watch|describe)$/.test(v)) return /secret/.test(r) ? `yes\n<span class="m">they're only base64. what could go wrong?</span>` : "yes";
+    if (v === "delete" && /^(po|pods?)$/.test(r)) return `yes\n<span class="m">go ahead. flux has your back.</span>`;
+    if (v === "debug" || v === "drain" || /^nodes?/.test(r)) return "yes";
+    return "no";
+  }
+
+  // ping: only home answers.
+  function ping(args) {
+    const target = args.find(a => !a.startsWith("-") && !/^\d+$/.test(a));
+    if (!target) return print(`usage: ping [-c count] host`);
+    const t = target.toLowerCase();
+    const home = ["localhost", "127.0.0.1", "::1", host, `www.${host}`, "homelab-01"].includes(t);
+    const gh = /^(www\.)?github\.com$/.test(t);
+    const ip = home ? "127.0.0.1" : gh ? "140.82.121.4" : null;
+    const steps = [() => print(`PING ${esc(target)}${ip ? ` (${ip})` : ""}: 56 data bytes`)];
+    for (let i = 0; i < 3; i++) steps.push(home
+      ? () => print(`64 bytes from ${ip}: icmp_seq=${i} ttl=64 time=0.${4 + i}${i} ms`)
+      : () => print(`Request timeout for icmp_seq ${i}`));
+    steps.push(() => print(`\n--- ${esc(target)} ping statistics ---\n3 packets transmitted, ${home ? "3 packets received, 0.0%" : "0 packets received, 100.0%"} packet loss` +
+      (home ? `\n<span class="m">he's here.</span>`
+        : gh ? `\n<span class="m">github doesn't answer pings. flux uses https anyway. try</span> <span class="a">curl -I github.com</span>`
+        : `\n<span class="m">unreachable. the homelab only talks to itself. and github.</span>`)));
+    sequence(steps, 450);
+  }
+
+  /* ---------- root ---------- */
+
+  // Absolute-path filesystem that only unlocks once isRoot is true.
+  const ROOTFS_DIRS = {
+    "/": ["bin/", "etc/", "home/", "root/", "var/"],
+    "/etc": ["hosts", "motd", "os-release", "passwd", "shadow"],
+    "/var": ["log/"],
+    "/var/log": ["syslog"],
+    "/root": ["coffee-voucher", ".bash_history", ".kube/"],
+    "/root/.kube": ["config"],
+    "/home": [`${USER}/`],
+    [`/home/${USER}`]: ["about.txt", "jausn.txt", "github/", ".kube/"],
+    [`/home/${USER}/.kube`]: ["config"],
+  };
+  const ROOTFS_FILES = {
+    "/etc/passwd": `root:x:0:0:root:/root:/bin/zsh
+coffee:x:418:418:Coffee Service,,,:/var/lib/coffee:/bin/sh
+flux:x:1000:1000:GitOps,,,:/var/lib/flux:/usr/sbin/nologin
+sleep:x:1001:1001:Sleep Service,,,:/var/lib/sleep:/usr/sbin/nologin
+${USER}:x:1002:1002:Bernd,,,:/home/${USER}:/bin/zsh`,
+    "/etc/shadow": `<span class="w">cat: /etc/shadow: still no plaintext passwords here. good.</span>`,
+    "/etc/hosts": `127.0.0.1   localhost
+127.0.0.1   klaus.onl      <span class="m"># home</span>
+::1         localhost ip6-localhost
+140.82.121.4 github.com    <span class="m"># source of truth</span>`,
+    "/etc/motd": `  welcome, root.
+  with great privilege comes a protected main branch.
+  <span class="m">everything here is reconciled from git. everything.</span>`,
+    "/etc/os-release": `PRETTY_NAME="Human 1.0 (austrian edition)"
+NAME="Human"
+VERSION="1.0"
+ID=human
+HOME_URL="https://klaus.onl"
+SUPPORT_URL="https://github.com/Berndinox"`,
+    "/var/log/syslog": `06:30:00 homelab systemd[1]: Started coffee.service.
+06:30:02 homelab flux[1000]: reconciled kustomization/homelab
+09:12:44 homelab kubelet[900]: sleep-6d4f8a: liveness probe failed
+09:12:45 homelab flux[1000]: it was DNS. it is always DNS.
+<span class="m">(log rotated. the rest lives in git.)</span>`,
+    "/root/.kube/config": KUBECONFIG,
+    [`/home/${USER}/about.txt`]: WHOAMI,
+    [`/home/${USER}/jausn.txt`]: JAUSN,
+    [`/home/${USER}/.kube/config`]: KUBECONFIG,
+  };
+  // The breadcrumb. Hidden file (ls -a). Hints at austria's secrets and the last line.
+  ROOTFS_FILES["/root/.bash_history"] = `flux reconcile ks homelab --with-source
+kubectl get secrets -n austria
+rm -rf /`;
+  // The reward. Shows up in plain `ls` of /root — the real prize for getting here.
+  ROOTFS_FILES["/root/coffee-voucher"] = `       (  )   (   )  )
+        ) (   )  (  (
+        ( )  (    ) )
+        _____________
+       &lt;_____________&gt; ___
+       |             |/ _ \\
+       |               | | |
+       |             |\\___/
+       |             |
+       \\___________/
+
+<span class="ok">☕  COFFEE VOUCHER</span>
+
+you found root. that earns a coffee, on me.
+
+codeword:   <span class="a">c0ffee-root</span>
+
+follow me on github and send the codeword:
+  → ${link("https://github.com/Berndinox", "github.com/Berndinox")}
+
+<span class="m">first 10 finders only.</span>
+<span class="m">one regular coffee, my treat, my choice of café. no guarantees, just good vibes.</span>`;
+
+  const rootResolve = (p) => {
+    if (!p) return cwd === "~" ? `/home/${USER}` : null;
+    let base;
+    if (p.startsWith("/")) base = [];
+    else if (p.startsWith("~")) return p === "~" ? `/home/${USER}` : `/home/${USER}/${p.slice(2)}`;
+    else base = (cwd === "~" ? `/home/${USER}` : cwd).split("/").filter(Boolean);
+    const stack = p.startsWith("/") ? [] : base;
+    for (const part of p.split("/")) {
+      if (!part || part === ".") continue;
+      if (part === "..") stack.pop();
+      else stack.push(part.replace(/\/$/, ""));
+    }
+    return "/" + stack.join("/");
+  };
+
+  function rootLs(target, long, all) {
+    const key = target === "/" ? "/" : target.replace(/\/$/, "");
+    if (ROOTFS_DIRS[key]) {
+      const entries = ROOTFS_DIRS[key].filter(e => all || !e.startsWith("."));
+      if (!entries.length) return;
+      if (!long) return print(entries.map(e => e.endsWith("/") ? `<span class="a">${e}</span>` : e).join("  "));
+      return print(entries.map(e => {
+        const dir = e.endsWith("/");
+        return `${dir ? "drwxr-xr-x" : "-rw-r--r--"}  root  root  ${dir ? `<span class="a">${e}</span>` : e}`;
+      }).join("\n"));
+    }
+    if (ROOTFS_FILES[key]) return print(key.split("/").pop());
+    print(`ls: cannot access '${esc(target)}': No such file or directory`);
+  }
+
+  // Oma Brunni — the deepest thing on the page. No jokes here.
+  const ROSE = [
+    "           ",
+    "     <span style=\"color:#e0556b\">.-.</span>     ",
+    "    <span style=\"color:#e0556b\">(   )</span>    ",
+    "   <span style=\"color:#e0556b\">( (o) )</span>   ",
+    "    <span style=\"color:#e0556b\">'-'</span><span style=\"color:#5ca05c\">|</span>    ",
+    "      <span style=\"color:#5ca05c\">|</span>     ",
+    "     <span style=\"color:#5ca05c\">\\|/</span>    ",
+    "      <span style=\"color:#5ca05c\">|</span>     ",
+  ];
+  function remembrance() {
+    const lines = [...ROSE, "", ...MEMORY.split("\n")];
+    sequence([
+      () => {},
+      ...lines.map((l, i) => () => print(i < ROSE.length
+        ? `<span class="wide"><span class="fade slow">${l}</span></span>`
+        : `<span class="m fade">${l}</span>`)),
+    ], 320);
+  }
+
+  // The real `rm -rf /`: refuses without --no-preserve-root, then takes the page down.
+  // Actually remove a path (and its children) from the session's node filesystem.
+  function removePath(abs) {
+    const key = abs === "/" ? "/" : abs.replace(/\/$/, "");
+    if (ROOTFS_DIRS[key] !== undefined) {
+      Object.keys(ROOTFS_DIRS).forEach(k => { if (k === key || k.startsWith(key + "/")) delete ROOTFS_DIRS[k]; });
+      Object.keys(ROOTFS_FILES).forEach(k => { if (k === key || k.startsWith(key + "/")) delete ROOTFS_FILES[k]; });
+    } else {
+      delete ROOTFS_FILES[key];
+    }
+    const slash = key.lastIndexOf("/");
+    const parent = slash <= 0 ? "/" : key.slice(0, slash);
+    const name = key.slice(slash + 1);
+    if (ROOTFS_DIRS[parent]) ROOTFS_DIRS[parent] = ROOTFS_DIRS[parent].filter(e => e.replace(/\/$/, "") !== name);
+  }
+
+  // As root, rm really operates on the node filesystem. `/` stays the dramatic path.
+  function rmRoot(args) {
+    const recursive = args.some(a => /^-\w*r/.test(a));
+    const force = args.some(a => /^-\w*f/.test(a));
+    const target = args.find(a => !a.startsWith("-"));
+    if (!target) return force ? undefined : print(`rm: missing operand`);
+    if (/^\/+$/.test(target)) {
+      if (!/--no-preserve-root/.test(args.join(" "))) return print(`rm: it is dangerous to operate recursively on '/'
+rm: use --no-preserve-root to override this failsafe`);
+      return apocalypse();
+    }
+    const abs = rootResolve(target);
+    const key = abs === "/" ? "/" : abs.replace(/\/$/, "");
+    const isDir = ROOTFS_DIRS[key] !== undefined;
+    const isFile = ROOTFS_FILES[abs] !== undefined;
+    if (!isDir && !isFile) return force ? undefined : print(`rm: cannot remove '${esc(target)}': No such file or directory`);
+    if (isDir && !recursive) return print(`rm: cannot remove '${esc(target)}': Is a directory`);
+    removePath(abs);   // gone for the session; a reload brings it all back
+  }
+
+  // Letters rain down, kernel panic, then flux rebuilds the page from git.
+  function apocalypse() {
+    busy = true; input.disabled = true;
+    degrade("deleting");
+    document.querySelectorAll(".term, .tagline, footer, .chips").forEach(el => { el.style.transition = "opacity 1.4s"; el.style.opacity = "0.15"; });
+    // Explode the wordmark into individual letters so each one falls on its own.
+    const full = host;
+    wordmark.innerHTML = [...full].map((ch, i) =>
+      `<span class="${i >= dot ? "tld" : ""}" style="animation-delay:${(i * 0.07).toFixed(2)}s">${esc(ch)}</span>`).join("");
+    const steps = [
+      () => print(`<span class="w">rm: removing everything, no --preserve-root</span>`),
+      () => wordmark.classList.add("falling"),
+      () => { out.textContent = ""; document.body.style.transition = "background 0.6s"; document.body.dataset.panic = "1"; },
+      () => print(`\n<span class="w">[ ${(4242.6).toFixed(6)}] Kernel panic - not syncing: VFS: Unable to mount root fs</span>`),
+      () => print(`<span class="w">[ ${(4242.7).toFixed(6)}] ---[ end Kernel panic ]---</span>`),
+      () => print(`<span class="m">...</span>`),
+      () => print(`<span class="a">flux</span>: cluster unreachable. waiting.`),
+      () => print(`<span class="a">flux</span>: GitRepository/homelab-gitops - fetching ${REV}`),
+      () => print(`<span class="a">flux</span>: Kustomization/homelab - applying 47 resources`),
+      restoreFromGit,
+      () => print(`<span class="ok">★ you deleted production. flux didn't care.</span>`),
+      () => print(`<span class="m">it's all in git. it always was.</span>`),
+    ];
+    sequence(steps, 600);
+  }
+
+  function restoreFromGit() {
+    delete document.body.dataset.panic;
+    wordmark.classList.remove("falling");
+    document.querySelectorAll(".term, .tagline, footer, .chips").forEach(el => el.style.opacity = "");
+    isRoot = false;
+    recover();
+    status.classList.remove("rooted");
+    setCwd("~");
+  }
+
+  // Step 1 of the escalation easter egg: kubectl debug node/... drops into a
+  // throwaway debug pod whose shell has the host mounted at /host.
+  function kdebug(pos, args) {
+    const target = pos[1] || "";
+    if (!target) return print(`error: NAME is required for debug\nSee 'kubectl debug -h' for help and examples`);
+    if (!/^node\//.test(target)) {
+      const q = target.replace(/^(po|pod|pods)\//, "");
+      if (!Object.keys(LOGS).some(p => p === q)) return print(`<span class="w">Error from server (NotFound):</span> pods "${esc(q)}" not found`);
+      return print(`<span class="w">error:</span> ephemeral containers are disabled for this cluster (error from server: "the server could not find the requested resource").`);
+    }
+    const node = target.replace(/^node\//, "");
+    if (node !== "homelab-01") return print(`<span class="w">Error from server (NotFound):</span> nodes "${esc(node)}" not found`);
+    const imgArg = args.find(a => a.startsWith("--image="));
+    const imgFlag = args[args.indexOf("--image") + 1];
+    const image = imgArg ? imgArg.split("=")[1] : (args.includes("--image") ? imgFlag : null);
+    if (!image) return print(`<span class="w">error:</span> --image is required for node debugging`);
+    const id = Math.random().toString(36).slice(2, 7);
+    sequence([
+      () => print(`Creating debugging pod node-debugger-homelab-01-${id} with container debugger on node homelab-01.`),
+      () => print(`If you don't see a command prompt, try pressing enter.`),
+      () => enterPod(),
+    ], 420);
+  }
+
+  // The debug pod's own tiny busybox filesystem. The node is mounted at /host.
+  const PODFS = {
+    "/": "bin  dev  etc  home  host  lib  proc  root  sys  tmp  usr  var",
+    "/bin": "busybox  cat  chroot  ls  mount  ps  sh",
+    "/dev": "null  tty  urandom  zero",
+    "/etc": "group  hostname  hosts  passwd  resolv.conf",
+    "/home": "",
+    "/proc": "1  cpuinfo  meminfo  mounts",
+    "/root": "",
+    "/usr": "bin  lib  sbin  share",
+    "/var": "log  run",
+    "/var/log": "",
+  };
+  const PODFS_FILES = {
+    "/etc/hostname": "node-debugger-homelab-01",
+    "/etc/hosts": "127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost",
+    "/etc/resolv.conf": "nameserver 10.96.0.10\nsearch austria.svc.cluster.local svc.cluster.local",
+    "/etc/passwd": "root:x:0:0:root:/root:/bin/sh\nnobody:x:65534:65534:nobody:/home:/sbin/nologin",
+    "/etc/group": "root:x:0:\nnobody:x:65534:",
+  };
+  // Resolve a path against podCwd, returning an absolute pod path.
+  function podResolve(p) {
+    if (!p) return podCwd;
+    const base = p.startsWith("/") ? [] : podCwd.split("/").filter(Boolean);
+    for (const part of p.split("/")) {
+      if (!part || part === ".") continue;
+      if (part === "..") base.pop();
+      else base.push(part);
+    }
+    return "/" + base.join("/");
+  }
+
+  function enterPod() {
+    inPod = true; isRoot = true; // root inside the pod, but only the pod — /host is the real thing
+    podCwd = "/";
+    status.classList.add("rooted"); statusText.textContent = "debug";
+    setCwd("/");
+  }
+  function leavePod(toRoot) {
+    inPod = false;
+    if (toRoot) return; // enterRoot() takes over
+    isRoot = false;
+    status.classList.remove("rooted"); statusText.textContent = "online";
+    setCwd("~");
+  }
+
+  // Minimal busybox shell for the debug pod. The only way forward is chroot /host.
+  function podExec(cmd, c, args) {
+    if (/^chroot\s+\/host/.test(cmd)) {
+      leavePod(true);
+      return enterRoot(true);
+    }
+    if (c === "chroot") return print(args[0] ? `chroot: can't change root directory to '${esc(args[0])}': No such file or directory` : `BusyBox v1.36.1 multi-call binary.\n\nUsage: chroot NEWROOT [PROG ARGS]`);
+    if (c === "exit" || c === "logout") return leavePod(false);
+    const underHost = (abs) => abs === "/host" || abs.startsWith("/host/");
+    const hostPath = (abs) => abs.slice(5) || "/";
+    const dkey = (p) => p === "/" ? "/" : p.replace(/\/$/, "");
+    if (c === "ls") {
+      const abs = podResolve(args.find(a => !a.startsWith("-")) || ".");
+      if (underHost(abs)) {
+        const key = dkey(hostPath(abs));
+        if (ROOTFS_DIRS[key]) return print(ROOTFS_DIRS[key].map(e => e.replace(/\/$/, "")).join("  "));
+        if (ROOTFS_FILES[key]) return print(key.split("/").pop());
+        return print(`ls: ${esc(abs)}: No such file or directory`);
+      }
+      const key = dkey(abs);
+      if (PODFS[key] !== undefined) return PODFS[key] ? print(PODFS[key]) : undefined;
+      if (PODFS_FILES[key]) return print(key.split("/").pop());
+      return print(`ls: ${esc(abs)}: No such file or directory`);
+    }
+    if (c === "cd") {
+      const abs = podResolve(args[0] || "/");
+      if (underHost(abs)) {
+        const key = dkey(hostPath(abs));
+        if (ROOTFS_DIRS[key]) { podCwd = dkey(abs); ps1El.textContent = ps1(); return; }
+        if (ROOTFS_FILES[key]) return print(`sh: cd: ${esc(args[0])}: Not a directory`);
+        return print(`sh: cd: can't cd to ${esc(args[0])}`);
+      }
+      const key = dkey(abs);
+      if (PODFS[key] !== undefined) { podCwd = key; ps1El.textContent = ps1(); return; }
+      if (PODFS_FILES[key]) return print(`sh: cd: ${esc(args[0])}: Not a directory`);
+      return print(`sh: cd: can't cd to ${esc(args[0])}`);
+    }
+    if (c === "cat") {
+      if (!args[0]) return;
+      const abs = podResolve(args[0]);
+      if (underHost(abs)) {
+        const h = hostPath(abs);
+        // The voucher is the reward for actually taking the node, not for reading it through the mount.
+        if (h === "/root/coffee-voucher") return print(`recon is half the job.\n<span class="m">to claim this, actually take the node:</span> <span class="a">chroot /host</span>`);
+        if (ROOTFS_FILES[h]) return print(ROOTFS_FILES[h]);
+        if (h === "/etc/hostname") return print(`homelab-01`);
+        if (ROOTFS_DIRS[dkey(h)]) return print(`cat: ${esc(args[0])}: Is a directory`);
+        return print(`cat: ${esc(args[0])}: No such file or directory`);
+      }
+      if (PODFS_FILES[abs]) return print(PODFS_FILES[abs]);
+      if (PODFS[dkey(abs)] !== undefined) return print(`cat: ${esc(args[0])}: Is a directory`);
+      return print(`cat: ${esc(args[0])}: No such file or directory`);
+    }
+    if (c === "whoami" || c === "id") return print(c === "id" ? `uid=0(root) gid=0(root) groups=0(root)` : `root`);
+    if (c === "pwd") return print(podCwd);
+    if (c === "hostname") return print(`node-debugger-homelab-01`);
+    if (c === "clear") { out.textContent = ""; return; }
+    if (!c) return;
+    return print(`sh: ${esc(c)}: not found`);
+  }
+
+  // Step 2 / direct: become host root. viaChroot marks arrival through the pod.
+  // A small ASCII celebration the first time someone reaches root.
+  function rootScene() {
+    // Pure ASCII so every glyph is in the mono font and the box aligns exactly.
+    const GLYPHS = {
+      R: ["##### ", "##  ##", "##### ", "##  ##", "##  ##"],
+      O: [" #### ", "##  ##", "##  ##", "##  ##", " #### "],
+      T: ["######", "  ##  ", "  ##  ", "  ##  ", "  ##  "],
+    };
+    const art = [0, 1, 2, 3, 4].map(r => ["R", "O", "O", "T"].map(ch => GLYPHS[ch][r]).join("  "));
+    const label = "access granted - root@homelab-01";
+    const W = Math.max(label.length, art[0].length) + 6;
+    const center = s => { const sp = W - s.length, l = Math.floor(sp / 2); return " ".repeat(l) + s + " ".repeat(sp - l); };
+    const bar = "  +" + "-".repeat(W) + "+";
+    const row = s => "  |" + center(s) + "|";
+    const banner = [bar, row(""), ...art.map(row), row(""), row(label), bar];
+    const stack = [
+      "you broke into the homelab. the real one runs on:",
+      "  Talos Linux · 3 nodes · Kubernetes",
+      "  Flux (GitOps) · Cilium + BGP · VyOS HA",
+      "  cert-manager · Longhorn · the usual suspects",
+    ];
+    sequence([
+      () => { body.classList.add("rootflash"); setTimeout(() => body.classList.remove("rootflash"), 820); },
+      ...banner.map(l => () => print(`<span class="ok root-banner flickerin">${esc(l)}</span>`)),
+      () => print(""),
+      ...stack.map((l, i) => () => print(i === 0 ? l : `<span class="m">${esc(l)}</span>`)),
+      () => print(""),
+      () => print(`<span class="m">motd:</span>\n${ROOTFS_FILES["/etc/motd"]}`),
+      () => print(`\n<span class="ok"># you are root on homelab-01.</span>`),
+      () => print(`<span class="m">there's a</span> coffee-voucher <span class="m">in /root. you earned it.</span>`),
+    ], 160);
+  }
+
+  // Per-visitor "root alumni" badge: survives reloads via localStorage.
+  function showAlumni(justEarned) {
+    const b = $("alumni");
+    if (!b) return;
+    b.hidden = false;
+    if (justEarned) { b.classList.remove("justearned"); void b.offsetWidth; b.classList.add("justearned"); }
+  }
+  function markAlumni() {
+    try { localStorage.setItem("klaus-root-alumni", "1"); } catch {}
+    showAlumni(true);
+  }
+  try { if (localStorage.getItem("klaus-root-alumni")) showAlumni(false); } catch {}
+
+  function enterRoot(viaChroot) {
+    if (isRoot && !viaChroot) return print(`you're already root. <span class="m">with great power...</span>`);
+    markAlumni();
+    isRoot = true;
+    status.classList.add("rooted");
+    statusText.textContent = "root";
+    setCwd("/root");
+    rootScene();
+  }
+
+  /* ---------- shell ---------- */
+
+  const SIMPLE = {
+    help: () => HELP, "?": () => HELP,
+    whoami: () => WHOAMI,
+    dig: () => ZONE, nslookup: () => ZONE, host: () => ZONE,
+    github: () => `→ ${link("https://github.com/Berndinox", "github.com/Berndinox")}`,
+    pwd: () => isRoot ? (cwd === "/" ? "/" : cwd) : `/home/${USER}` + cwd.slice(1),
+    hostname: () => host,
+    date: () => {
+      const d = new Date();
+      const part = o => new Intl.DateTimeFormat("en-US", o).format(d);
+      const tz = new Intl.DateTimeFormat("en-GB", { timeZoneName: "short" }).formatToParts(d).find(x => x.type === "timeZoneName").value;
+      return `${part({ weekday: "short" })} ${part({ month: "short" })} ${String(d.getDate()).padStart(2)} ${d.toTimeString().slice(0, 8)} ${tz} ${d.getFullYear()}`;
+    },
+    time: () => {
+      const d = new Date(), h = d.getHours();
+      const verdict = h < 6 ? "time to sleep. see <span class=\"a\">kubectl logs sleep</span>"
+        : h < 10 ? "time for coffee."
+        : h < 12 ? "time for the second coffee."
+        : h < 14 ? "time for lunch. schnitzel, ideally."
+        : h < 17 ? "time to reconcile something."
+        : h < 22 ? "time for the homelab."
+        : "time to sleep. just one more reconcile first.";
+      return `${d.toTimeString().slice(0, 5)}. ${verdict}`;
+    },
+    uptime: () => {
+      const s = Math.floor((Date.now() - started) / 1000);
+      const t = [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(n => String(n).padStart(2, "0")).join(":");
+      return `up ${t}, 1 user (you), load average: 0.42 coffee/h`;
+    },
+    history: () => history.map((c, i) => `  ${String(i + 1).padStart(3)}  ${esc(c)}`).join("\n") || `<span class="m">(empty)</span>`,
+    coffee: () => `<span class="w">HTTP/1.1 418 I'm a teapot</span>\nask again in the kitchen.`,
+    exit: () => `logout... just kidding. you can close the tab, flux won't reconcile that.`,
+    logout: () => SIMPLE.exit(),
+    oida: () => `Oida, des is a Kubernetes-Cluster und ka Würstelstand.`,
+  };
+
+  const VARS = () => ({
+    USER, HOME: `/home/${USER}`, SHELL: "/bin/zsh", HOSTNAME: host, PWD: SIMPLE.pwd(),
+    LANG: "de_AT.UTF-8", EDITOR: "vim", KUBECONFIG: "~/.kube/config", "?": "0",
+    PATH: `/usr/local/bin:/usr/bin:/bin:/home/${USER}/.krew/bin`, TERM: "xterm-256color",
+    COFFEE: "required", FLUX_SYSTEM_NAMESPACE: "flux-system",
+  });
+  const unescapeHtml = t => t.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+
+  function run(raw) {
+    const line = raw.trim().replace(/\s+/g, " ");
+    echo(raw);
+    if (!line) return;
+    bumpLoad();
+    history.push(line);
+    hIdx = history.length;
+    if (/^([\w:]+)\s*\(\)\s*\{\s*\1\s*\|\s*\1\s*&\s*;?\s*\}\s*;?\s*\1$/.test(line)) return forkBomb();
+    const redir = line.match(/(>>?)\s*(\S+)\s*$/);   // writing to a file: the fs is read-only
+    if (redir) return print(`zsh: ${esc(redir[2])}: read-only file system`);
+    runParts(line.split(/\s*(?:&&|\|\||;)\s*/).filter(Boolean));
+  }
+
+  // `a && b; c`: run one after another, waiting for animated commands to finish.
+  function runParts(parts) {
+    if (!parts.length) return;
+    const [first, ...rest] = parts;
+    pipeline(first);
+    const next = () => busy ? setTimeout(next, 100) : runParts(rest);
+    if (rest.length) next();
+  }
+
+  // `cmd | grep x | less`. Only grep filters; less/more/cat pass through.
+  function pipeline(line) {
+    if (/\|\s*base64\s+(?:-d|-D|--decode)$/.test(line)) return base64Decode(line.replace(/\s*\|\s*base64\s+(?:-d|-D|--decode)$/, ""));
+    const [left, ...filters] = line.split(/\s*\|\s*/);
+    if (!filters.length) return exec(left);
+    const tests = [];
+    for (const f of filters) {
+      const [fc, ...fa] = f.split(" ");
+      if (fc === "grep") {
+        const flags = fa.filter(a => a.startsWith("-")).join("");
+        const pat = fa.filter(a => !a.startsWith("-")).join(" ").replace(/^(['"])(.*)\1$/, "$2");
+        if (!pat) return print(`usage: grep [-iv] pattern`);
+        const ci = flags.includes("i"), inv = flags.includes("v");
+        tests.push(l => { const t = ci ? unescapeHtml(l).toLowerCase() : unescapeHtml(l); return t.includes(ci ? pat.toLowerCase() : pat) !== inv; });
+      } else if (!/^(less|more|cat)$/.test(fc)) return print(`zsh: command not found: ${esc(fc)}`);
+    }
+    capture = [];
+    try { exec(left); } finally {
+      const lines = capture.join("\n").split("\n");
+      capture = null;
+      const kept = lines.filter(l => tests.every(t => t(l)));
+      if (kept.length) print(kept.join("\n"));
+    }
+  }
+
+  function exec(raw) {
+    const vars = VARS();
+    const cmd = raw.replace(/\$\{?(\w+|\?)\}?/g, (_, v) => vars[v] ?? "");
+    const [c, ...args] = cmd.split(" ");
+
+    if (inPod) return podExec(cmd, c, args);
+    if (c === "clear") { out.textContent = ""; return; }
+    if ((c === "exit" || c === "logout") && isRoot) {
+      isRoot = false; status.classList.remove("rooted"); statusText.textContent = "online"; setCwd("~");
+      return print(`logout\n<span class="m">back to ${USER}. the homelab is yours again.</span>`);
+    }
+    if (c === "whoami" && isRoot) return print(`root`);
+    if (c === "id") return print(isRoot ? `uid=0(root) gid=0(root) groups=0(root)`
+      : `uid=1002(${USER}) gid=1002(${USER}) groups=1002(${USER}),27(sudo)`);
+    if (c === "echo") return print(esc(args.join(" ").replace(/^(['"])(.*)\1$/, "$2")));
+    if (SIMPLE[c]) return print(SIMPLE[c]());
+    if (cmd === "make coffee") return print(SIMPLE.coffee());
+    if (c === "ls" || c === "ll") return ls(c === "ll" ? ["-l", ...args] : args);
+    if (c === "cd") return cd(args);
+    if (c === "cat") return cat(args);
+    if (c === "sl") return sl();
+    if (c === "kubectl" || c === "k") return kubectl(args);
+    if (c === "flux") return flux(args);
+    if (c === "helm") return helm(args);
+    if (c === "ssh") {
+      const dest = args.find(a => !a.startsWith("-"));
+      if (!dest) return print(`usage: ssh [-46AaCfGgKkMNnqsTtVvXxYy] [-i identity_file] [-p port]\n           destination [command [argument ...]]`);
+      return print(`${esc(dest.includes("@") ? dest : `${USER}@${dest}`)}: Permission denied (publickey).\n<span class="m">nice try though.</span>`);
+    }
+    if (c === "bernd") return bernd(args);
+    if (c === "neofetch" || c === "fastfetch") return print(neofetch());
+    if (c === "uname") return print(uname(args));
+    if (c === "git") return print(git(args));
+    if (c === "curl" || c === "wget") return print(curl(args));
+    if (c === "env" || c === "printenv") {
+      const vars = VARS();
+      if (args[0]) return print(vars[args[0]] !== undefined ? esc(vars[args[0]]) : "");
+      return print(Object.entries(vars).filter(([k]) => k !== "?").map(([k, v]) => `${k}=${esc(v)}`).join("\n"));
+    }
+    if (c === "ps") {
+      const u = whoNow();
+      if (args.some(a => /a/.test(a)) || args.length) return print(table([
+        ["USER", "PID", "%CPU", "%MEM", "COMMAND"],
+        [u, "1", "0.0", "0.1", "/sbin/init"],
+        [u, "42", "2.1", "94.0", "chromium --tabs=148"],
+        [u, "418", "0.4", "0.1", "coffee --refill --no-sugar"],
+        [u, "1337", "0.1", "8.0", "/usr/bin/kubelet"],
+        [u, "8080", "0.0", "1.0", "nginx: master process"],
+        [u, "31337", "0.0", "0.0", "zsh"],
+      ]));
+      return print(table([["PID", "TTY", "TIME", "CMD"], ["31337", "pts/0", "00:04:18", "zsh"], ["1337", "pts/0", "00:00:01", "kubectl"]]));
+    }
+    if (c === "df") return print(table([
+      ["Filesystem", "Size", "Used", "Avail", "Use%", "Mounted on"],
+      ["overlay", "147G", "98G", "49G", "67%", "/"],
+      ["longhorn-pv-c0ffee42", "147G", "147G", "0", "100%", "/data"],
+      ["tmpfs", "2.0G", "418M", "1.6G", "21%", "/coffee"],
+    ]) + `\n<span class="m">/data is full. it's mostly browser history.</span>`);
+    if (c === "free") return print(`               total        used        free      shared  buff/cache   available
+Mem:            63Gi        61Gi       1.2Gi        94Mi       820Mi       1.1Gi
+Swap:              0B          0B          0B
+<span class="m">most of it is browser tabs. see curiosity-0.</span>`);
+    if (c === "which" || c === "whereis") {
+      const BINS = { kubectl: "/usr/local/bin/kubectl", k: "/usr/local/bin/k", flux: "/usr/local/bin/flux",
+        helm: "/usr/local/bin/helm", git: "/usr/bin/git", curl: "/usr/bin/curl", wget: "/usr/bin/wget",
+        ssh: "/usr/bin/ssh", ping: "/bin/ping", dig: "/usr/bin/dig", base64: "/usr/bin/base64", grep: "/bin/grep",
+        cat: "/bin/cat", ls: "/bin/ls", ps: "/bin/ps", df: "/bin/df", free: "/usr/bin/free", cal: "/usr/bin/cal",
+        coffee: "/usr/bin/coffee", bernd: "/usr/local/bin/bernd", vim: "/usr/bin/vim", nano: "/usr/bin/nano", neofetch: "/usr/bin/neofetch" };
+      if (!args.length) return;
+      const out = args.map(a => BINS[a] ? (c === "whereis" ? `${a}: ${BINS[a]}` : BINS[a]) : (c === "whereis" ? `${esc(a)}:` : null)).filter(x => x !== null);
+      return out.length ? print(out.join("\n")) : undefined;
+    }
+    if (c === "cal") {
+      const now = new Date(), y = now.getFullYear(), m = now.getMonth(), today = now.getDate();
+      const title = now.toLocaleString("en-US", { month: "long" }) + " " + y;
+      const startDow = (new Date(y, m, 1).getDay() + 6) % 7;        // Monday = 0
+      const days = new Date(y, m + 1, 0).getDate();
+      const cells = [];
+      for (let i = 0; i < startDow; i++) cells.push("  ");
+      for (let d = 1; d <= days; d++) cells.push(d === today ? `<span class="a">${String(d).padStart(2)}</span>` : String(d).padStart(2));
+      const rows = [];
+      for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7).join(" "));
+      const pad = Math.max(0, Math.floor((20 - title.length) / 2));
+      return print([" ".repeat(pad) + title, "Mo Tu We Th Fr Sa Su", ...rows].join("\n"));
+    }
+    if (/^(touch|mkdir)$/.test(c)) return print(args[0] ? `${c}: cannot create '${esc(args.find(a => !a.startsWith("-")) || "")}': Read-only file system` : `${c}: missing operand`);
+    if (c === "head" || c === "tail") return headTail(c, args);
+    if (c === "tree") return tree(args);
+    if (/^(sudo )?(reboot|systemctl reboot|shutdown -r( now)?|init 6)$/.test(cmd))
+      return isRoot ? reboot() : print(`Failed to reboot: Interactive authentication required.\n<span class="m">you need to be root for that.</span>`);
+    if (/^(sudo )?(shutdown|poweroff|halt|init 0)\b/.test(cmd))
+      return isRoot ? print(`nope. this node doesn't go down that easily. try <span class="a">reboot</span>.`)
+        : print(`Failed to power off: Interactive authentication required.`);
+    if (c === "man") {
+      if (!args.length) return print(`What manual page do you want?\nFor example, try '<span class="a">man bernd</span>'.`);
+      return print(/^(bernd|berndinox)$/.test(args[0]) ? MAN : `No manual entry for ${esc(args[0])}`);
+    }
+    // Root escalation is wired through `kubectl debug node/...` → `chroot /host`
+    // (see kdebug / enterPod / enterRoot). sudo stays a dead end on purpose.
+    if (c === "su") return print(isRoot ? `already root.`
+      : `su: Permission denied\n<span class="m">blocked by policy.</span>`);
+    if (c === "sudo") return print(`${USER} is not in the sudoers file.\n<span class="m">This incident will be reported.</span>`);
+    if (c === "rm") {
+      if (isRoot) return rmRoot(args);
+      const target = args.find(a => !a.startsWith("-"));
+      if (!target) return print(`rm: missing operand`);
+      return print(`rm: cannot remove '${esc(target)}': Read-only file system`);
+    }
+    if (/^(servus|hallo|hello|hi|hey|griaß|grüß)$/i.test(c)) return print(`Servus! Griaß di. Wia geht's?`);
+    if (/^(baba|pfiat|tschüss|bye)$/i.test(c)) return print(`Pfiat di! <span class="m">(exit still doesn't work, by the way)</span>`);
+    if (/^(vim?|nano|emacs)$/.test(c)) return print(`you'd never get out again. trust me.`);
+    if (c === "ping") return ping(args);
+    print(`zsh: command not found: ${esc(c.replace(/^(['"])(.*)\1$/, "$2"))}. try <span class="a">help</span>`);
+  }
+
+  const COMMANDS = [...Object.keys(SIMPLE), "clear", "ls", "cd", "cat", "kubectl", "ssh", "sudo", "ping", "reboot", "man bernd", "bernd --coffee", "bernd --homelab", "bernd --verbose-k8s", "bernd --easteregg", "neofetch", "uname -a", "git log", "git status", "curl", "env", "printenv", "ps aux", "df -h", "free -h", "cal", "which", "whereis", "tree", "head", "tail", "flux", "helm"];
+  // Word-wise completion for kubectl / flux / helm, like the real shell completions.
+  const tableNames = t => t.split("\n").slice(1).map(l => unescapeHtml(l).trim().split(/\s+/)[0]).filter(Boolean);
+  const K_VERBS = ["get", "describe", "logs", "exec", "delete", "top", "explain", "rollout", "scale", "debug", "drain", "cordon", "uncordon",
+    "auth", "apply", "create", "patch", "replace", "edit", "events", "config", "version", "cluster-info", "api-resources"];
+  const K_TYPES = ["all", "pods", "nodes", "namespaces", "secrets", "deployments", "statefulsets", "services", "configmaps",
+    "persistentvolumeclaims", "persistentvolumes", "httproutes", "clusterroles", "clusterrolebindings", "roles", "rolebindings", "events", "crds", "humans", "kustomizations", "helmreleases", "gitrepositories"];
+  const K_NS = ["life", "austria", "flux-system", "kube-system"];
+  const names = (map, ns) => (map[ns] || []).map(r => r[0]);
+  const podsIn = ns => tableNames({ life: PODS, austria: PODS_AT, "flux-system": PODS_FLUX }[ns] || "");
+  function cliWords(words) {
+    const [cmd, ...rest] = words;
+    const prev = rest[rest.length - 1];
+    const takesValue = w => /^(-n|--namespace|-o|--output|--image)$/.test(w);
+    const pos = rest.filter((w, i) => !w.startsWith("-") && !(i > 0 && takesValue(rest[i - 1])));
+    const nsI = rest.findIndex(w => w === "-n" || w === "--namespace");
+    const nsEq = rest.find(w => /^(-n|--namespace)=/.test(w));
+    const ns = nsI >= 0 && rest[nsI + 1] ? rest[nsI + 1] : nsEq ? nsEq.split("=")[1] : "life";
+    if (cmd === "kubectl" || cmd === "k") {
+      if (prev === "-n" || prev === "--namespace") return K_NS;
+      if (prev === "-o" || prev === "--output") return ["yaml", "json", "wide", "jsonpath="];
+      const [verb, type] = pos;
+      if (!verb) return K_VERBS;
+      const t = type || "";
+      if (["get", "describe", "delete"].includes(verb)) {
+        if (pos.length === 1) return K_TYPES;
+        if (pos.length > 2) return [];
+        if (/^(po|pods?)$/.test(t)) return podsIn(ns);
+        if (/^secrets?$/.test(t)) return nsForbidden(ns) ? [] : Object.entries(SECRETS[ns] || {}).filter(([, v]) => visible(ns, v)).map(([k]) => k);
+        if (/^(no|nodes?)$/.test(t)) return ["homelab-01"];
+        if (/^(ns|namespaces?)$/.test(t)) return K_NS;
+        if (/^humans?$/.test(t)) return ["bernd"];
+        if (/^(deploy|deployments?)$/.test(t)) return names(K_DEPLOY, ns);
+        if (/^(sts|statefulsets?)$/.test(t)) return names(K_STS, ns);
+        if (/^(svc|services?)$/.test(t)) return names(K_SVC, ns);
+        if (/^(cm|configmaps?)$/.test(t)) return names(K_CM, ns);
+        if (/^(pvc|persistentvolumeclaims?)$/.test(t)) return names(K_PVC, ns);
+        if (/^httproutes?$/.test(t)) return names(K_ROUTES, ns);
+        if (/^(ks|kustomizations?)$/.test(t)) return Object.keys(KS);
+        if (/^(hr|helmreleases?)$/.test(t)) return Object.keys(HR);
+        return [];
+      }
+      if (verb === "logs" || verb === "exec") return pos.length === 1 ? podsIn(ns) : [];
+      if (verb === "top") return pos.length === 1 ? ["node", "pods"] : [];
+      if (verb === "explain") return pos.length === 1 ? ["human"] : [];
+      if (verb === "debug") return [];  // no tab-completion: don't hand out the way in
+      if (["drain", "cordon", "uncordon"].includes(verb)) return pos.length === 1 ? ["homelab-01"] : [];
+      if (verb === "rollout") return [["history", "restart", "status", "undo"], ["deployment"], names(K_DEPLOY, ns)][pos.length - 1] || [];
+      if (verb === "scale") return pos.length === 1 ? ["deployment", "statefulset"] : pos.length === 2 ? names(/^(sts|statefulsets?)$/.test(t) ? K_STS : K_DEPLOY, ns) : ["--replicas="];
+      if (verb === "config") return pos.length === 1 ? ["current-context", "get-contexts", "use-context", "view"] : pos.length === 2 && type === "use-context" ? ["homelab"] : [];
+      if (verb === "version") return ["--client"];
+      if (verb === "auth") return [["can-i"], ["get", "list", "delete", "debug", "drain"], K_TYPES][pos.length - 1] || [];
+      if (verb === "apply" || verb === "replace") return ["-f"];
+      if (verb === "create") return pos.length === 1 ? ["deployment", "namespace", "configmap", "secret", "service", "job", "cronjob", "-f"] : [];
+      if (verb === "patch") return pos.length === 1 ? K_TYPES : [];
+      return [];
+    }
+    if (cmd === "flux") {
+      const [verb, kind] = pos;
+      if (!verb) return ["check", "get", "reconcile", "suspend", "resume", "tree", "logs", "version"];
+      if (verb === "get") return pos.length === 1 ? ["kustomizations", "helmreleases", "sources", "all"] : pos.length === 2 && kind === "sources" ? ["git"] : [];
+      if (["reconcile", "suspend", "resume"].includes(verb)) {
+        if (pos.length === 1) return ["kustomization", "helmrelease", "source"];
+        if (pos.length === 2) return /^(ks|kustomizations?)$/.test(kind) ? Object.keys(KS) : /^(hr|helmreleases?)$/.test(kind) ? Object.keys(HR) : kind === "source" ? ["git"] : [];
+        if (pos.length === 3 && kind === "source") return Object.keys(GIT);
+        return verb === "reconcile" ? ["--with-source"] : [];
+      }
+      if (verb === "tree") return [["kustomization"], ["homelab"]][pos.length - 1] || [];
+      return [];
+    }
+    if (cmd === "helm") {
+      const [verb] = pos;
+      if (!verb) return ["list", "install", "rollback"];
+      if (verb === "rollback" || verb === "install") return pos.length === 1 ? ["coffee-machine", "browser-tabs", "motivation", "life"] : [];
+      return [];
+    }
+    return null;
+  }
+
+  function complete(v) {
+    const sp = v.lastIndexOf(" ");
+    if (v.split(" ")[0] === "rm" && sp > 0 && v.slice(sp + 1).startsWith("--")) {
+      const word = v.slice(sp + 1);
+      const flags = ["--no-preserve-root", "--recursive", "--force", "--verbose"].filter(f => f.startsWith(word));
+      return { hits: flags.map(f => v.slice(0, sp + 1) + f), labels: flags, word: true };
+    }
+    const isPath = sp > 0 && /^(ls|ll|cd|cat|head|tail|tree|rm)$/.test(v.split(" ")[0]);
+    if (isPath) {
+      const word = v.slice(sp + 1);
+      const dirPart = word.includes("/") ? word.slice(0, word.lastIndexOf("/") + 1) : "";
+      const base = word.slice(dirPart.length);
+      // Root mode walks the absolute filesystem; hidden entries only when the base starts with "."
+      if (isRoot) {
+        const abs = rootResolve(dirPart || ".");
+        const key = abs === "/" ? "/" : abs.replace(/\/$/, "");
+        const entries = ROOTFS_DIRS[key] || [];
+        const hits = entries.filter(e => e.startsWith(base) && (base.startsWith(".") || !e.startsWith(".")));
+        return { hits: hits.map(h => v.slice(0, sp + 1) + dirPart + h), labels: hits, word: true };
+      }
+      const dir = DIRS[resolve(dirPart || ".")];
+      const hits = (dir ? dir.entries : []).filter(e => e.startsWith(base));
+      return { hits: hits.map(h => v.slice(0, sp + 1) + dirPart + h), labels: hits, word: true };
+    }
+    const words = v.split(" ");
+    const partial = words.pop();
+    const cands = words.length ? cliWords(words) : null;
+    if (cands) {
+      const hits = cands.filter(c => c.startsWith(partial));
+      return { hits: hits.map(h => [...words, h].join(" ")), labels: hits, word: true };
+    }
+    const hits = COMMANDS.filter(c => c.startsWith(v));
+    return { hits, labels: hits, word: true };
+  }
+
+  input.addEventListener("keydown", e => {
+    if (busy) return;
+    if (e.key === "Enter") { e.preventDefault(); const v = input.value; input.value = ""; run(v); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); if (hIdx > 0) input.value = history[--hIdx]; }
+    else if (e.key === "ArrowDown") { e.preventDefault(); hIdx = Math.min(history.length, hIdx + 1); input.value = history[hIdx] || ""; }
+    else if (e.key === "Tab") {
+      const v = input.value;
+      if (!v) return;
+      e.preventDefault();
+      const { hits, labels, word } = complete(v);
+      if (hits.length === 1) input.value = hits[0] + (word && !/[\/=]$/.test(hits[0]) ? " " : "");
+      else if (hits.length > 1) {
+        const lcp = hits.reduce((a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return a.slice(0, i); });
+        if (lcp.length > v.length) input.value = lcp;
+        else { echo(v); print(labels.join("  ")); }
+      }
+    } else if (e.key === "l" && e.ctrlKey) { e.preventDefault(); out.textContent = ""; }
+  });
+  body.addEventListener("click", () => { if (!getSelection().toString()) input.focus({ preventScroll: true }); });
+  $("chips").addEventListener("click", e => {
+    const b = e.target.closest("button[data-cmd]");
+    if (b && !busy) { run(b.dataset.cmd); if (!busy) input.focus({ preventScroll: true }); }
+  });
+
+  // Konami code anywhere on the page → chaos mode.
+  const KONAMI = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+  let kPos = 0;
+  document.addEventListener("keydown", e => {
+    kPos = e.key === KONAMI[kPos] ? kPos + 1 : (e.key === KONAMI[0] ? 1 : 0);
+    if (kPos === KONAMI.length) { kPos = 0; input.value = ""; if (!busy) chaosMode(); }
+  });
+
+  // The prompt appears once the boot command has finished. Desktop visitors can then type
+  // right away; on touch devices a focused input would pop the keyboard.
+  const promptLine = input.closest(".line");
+  const showPrompt = () => {
+    promptLine.hidden = false;
+    if (matchMedia("(pointer: fine)").matches) input.focus({ preventScroll: true });
+  };
+
+  // Boot: type the first command, then hand the shell over.
+  const first = "kubectl describe human bernd";
+  if (reduced) { echo(first); print(DESCRIBE()); showPrompt(); return; }
+  promptLine.hidden = true;
+  busy = true;
+  let i = 0;
+  print(`<span class="p">${esc(ps1())}</span> <span class="cmd" id="typing"></span>`);
+  const typing = $("typing");
+  const tick = () => {
+    typing.textContent = first.slice(0, ++i);
+    if (i < first.length) setTimeout(tick, 28 + Math.random() * 40);
+    else setTimeout(() => { typing.removeAttribute("id"); print(DESCRIBE()); showPrompt(); busy = false; }, 260);
+  };
+  setTimeout(tick, 400);
+})();
+</script>
+</body>
+</html>

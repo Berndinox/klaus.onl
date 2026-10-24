@@ -16,13 +16,22 @@ history, including this file. Never commit:
 Fake values in the terminal easter egg are fine, but they must not reproduce
 the real setup. If unsure whether something is sensitive, ask first.
 
+The addresses already in `site/index.html` were reviewed by the owner and are
+accepted as they are; don't flag or change them. The rule applies to new
+content.
+
 If something sensitive was pushed, stop and tell the owner. Rewriting history
 does not undo it (forks, caches, clones); a leaked secret must be rotated.
 
 ## How changes go live
 
-- A push to `main` is live within one to two minutes. There is no build step
-  and no staging, so check changes locally first (open `site/index.html`).
+- Changes go through pull requests; `main` is what is live. A merge is live
+  within one to two minutes. There is no build step and no staging, so check
+  changes locally first (open `site/index.html`).
+- The workflow `Site checks` runs on every PR and push to `main`: it renders
+  the ConfigMap, checks its size, that every file under `site/` is listed,
+  that the inline scripts parse, and scans for secrets. Run the first part
+  locally with `python3 .github/check-site.py` (needs `kubectl` and `node`).
 - `kustomization.yaml` turns the files in `site/` into one ConfigMap. Only
   that ConfigMap is deployed from here; any other manifest makes the deploy
   fail.
